@@ -61,7 +61,7 @@ class TranslationController extends BaseController
                 $type = $manifest['type'] ?? 'backend';
 
                 // Les types qui ont une présence frontend
-                $translatableTypes = ['widget', 'frontend', 'hybrid'];
+                $translatableTypes = ['widget', 'frontend', 'hybrid', 'addon'];
 
                 //  LA NOUVELLE CONDITION : Le dossier des traductions publiques doit exister
                 $hasFrontI18n = is_dir($pluginsDir . $pluginName . DS . 'i18n' . DS . 'front');

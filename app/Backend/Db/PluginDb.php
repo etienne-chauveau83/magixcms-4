@@ -28,6 +28,19 @@ class PluginDb extends BaseDb
     }
 
     /**
+     * Vérifie si un plugin est actuellement installé dans la table mc_plugins
+     */
+    public function isPluginInstalled(string $pluginName): bool
+    {
+        $qb = new QueryBuilder();
+        $qb->select('id_plugins')
+            ->from('mc_plugins')
+            ->where('name = :name', ['name' => $pluginName]);
+
+        return !empty($this->executeRow($qb));
+    }
+
+    /**
      * Enregistre un nouveau plugin lors de son installation
      */
     public function insertPlugin(array $data): int|false
@@ -140,12 +153,14 @@ class PluginDb extends BaseDb
     }
 
     /**
-     * Supprime toutes les liaisons du plugin avec les modules Core
+     * Supprime toutes les liaisons du plugin (qu'il soit parent ou enfant)
      */
     public function unlinkPluginFromAllModules(string $pluginName): bool
     {
         $qb = new QueryBuilder();
-        $qb->delete('mc_plugins_module')->where('plugin_name = :name', ['name' => $pluginName]);
+        $qb->delete('mc_plugins_module')
+            ->where('plugin_name = :name OR module_name = :name', ['name' => $pluginName]);
+
         return $this->executeDelete($qb);
     }
 

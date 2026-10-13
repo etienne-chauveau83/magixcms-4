@@ -116,11 +116,27 @@ class PluginController extends BaseController
         // 3. Insertion dans mc_plugins
         if ($db->insertPlugin($data)) {
 
-            // 4. Liaison dans mc_plugins_module
+            // 4. Liaison dans mc_plugins_module (Core Modules & Plugins tiers)
+
+            // A. Liaison aux modules natifs du Core (ex: 'news', 'contact')
             if (!empty($targets)) {
                 foreach ($targets as $moduleName => $isActive) {
                     if ($isActive == 1) {
                         $db->linkPluginToModule($pluginName, $moduleName);
+                    }
+                }
+            }
+
+            // B. Liaison aux autres plugins (ex: 'Magixcartpay')
+            $pluginTargets = $manifest['plugin_targets'] ?? [];
+            if (!empty($pluginTargets)) {
+                foreach ($pluginTargets as $targetPlugin => $isActive) {
+                    if ($isActive == 1) {
+                        // On vérifie que le plugin cible est bien installé sur le CMS
+                        if ($db->isPluginInstalled($targetPlugin)) {
+                            // On lie normalement : plugin_name = GoogleRecaptcha, module_name = magixcartpay
+                            $db->linkPluginToModule($pluginName, strtolower($targetPlugin));
+                        }
                     }
                 }
             }
