@@ -9,8 +9,8 @@
 
             {*  AJOUT : Récupération directe depuis mc_settings *}
             <span class="badge bg-secondary ms-1">
-                        v{$mc_settings.version.value|default:'4.0.0'}
-                    </span>
+                v{$mc_settings.magix_version.value|default:'4.0.0'}
+            </span>
             &mdash; Tous droits réservés.
         </p>
     </div>
