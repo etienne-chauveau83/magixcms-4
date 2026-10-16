@@ -36,25 +36,33 @@ class PluginController extends BaseController
         foreach ($folders as $folder) {
             $pluginName = basename($folder);
 
-            //  CORRECTION : On lit le manifest.json DANS TOUS LES CAS
             $manifestPath = $folder . '/manifest.json';
             $manifest = file_exists($manifestPath) ? json_decode(file_get_contents($manifestPath), true) : [];
 
             $pluginType = $manifest['type'] ?? 'backend';
             $pluginVersion = $manifest['version'] ?? '1.0.0';
 
-            // Si le plugin est déjà installé, on fusionne les données de la BDD et du JSON
+            // ---> AJOUT : On extrait le nom du plugin cible depuis 'plugin_targets' (si c'est un addon)
+            $targetName = '';
+            if (isset($manifest['plugin_targets']) && is_array($manifest['plugin_targets'])) {
+                // array_key_first() récupère la première clé du tableau (ex: "Magixcartpay")
+                $targetName = array_key_first($manifest['plugin_targets']) ?: '';
+            }
+
+            // Si le plugin est déjà installé, on fusionne les données
             if (isset($installed[$pluginName])) {
                 $pluginData = $installed[$pluginName];
                 $pluginData['is_installed'] = true;
-                $pluginData['type'] = $pluginType; //  Ajout du type manquant
-                $pluginData['version'] = $pluginVersion; // Met à jour la version si le JSON a changé
+                $pluginData['type'] = $pluginType;
+                $pluginData['version'] = $pluginVersion;
+                $pluginData['addon_target'] = $targetName; // <--- NOUVEAU
             } else {
                 // Sinon, c'est un nouveau plugin non installé
                 $pluginData = [
                     'name'         => $pluginName,
                     'version'      => $pluginVersion,
                     'type'         => $pluginType,
+                    'addon_target' => $targetName, // <--- NOUVEAU
                     'is_installed' => false,
                     'home' => 0, 'about' => 0, 'pages' => 0, 'news' => 0, 'catalog' => 0, 'category' => 0, 'product' => 0, 'seo' => 0
                 ];

@@ -69,4 +69,34 @@ class PluginDb
             return [];
         }
     }
+    /**
+     * Vérifie si un plugin (addon) est activement lié à un module cible dans mc_plugins_module.
+     *
+     * @param string $pluginName Le nom de l'addon (ex: 'MagixStripe')
+     * @param string $moduleName Le nom du module cible (ex: 'Magixcartpay')
+     * @return bool Vrai si la liaison existe et est active (active = 1)
+     */
+    public function isAddonActiveForModule(string $pluginName, string $moduleName): bool
+    {
+        try {
+            $qb = new QueryBuilder();
+            $qb->select(['active'])
+                ->from('mc_plugins_module')
+                ->where('plugin_name = :plugin', ['plugin' => $pluginName])
+                ->where('module_name = :module', ['module' => $moduleName])
+                ->limit(1);
+
+            $layer = Layer::getInstance();
+            $result = $layer->fetch($qb->getSql(), $qb->getParams());
+
+            if (is_array($result) && isset($result['active']) && (int)$result['active'] === 1) {
+                return true;
+            }
+            return false;
+
+        } catch (\Throwable $e) {
+            Logger::getInstance()->log($e, "php", "error", Logger::LOG_MONTH, Logger::LOG_LEVEL_ERROR);
+            return false;
+        }
+    }
 }

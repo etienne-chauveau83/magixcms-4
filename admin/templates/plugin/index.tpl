@@ -16,7 +16,7 @@
                     <thead class="bg-light text-muted small text-uppercase">
                     <tr>
                         <th class="ps-4">Plugin / Version</th>
-                        <th class="text-center">Type</th> {*  NOUVELLE COLONNE *}
+                        <th class="text-center">Type</th>
                         <th class="text-center">Cibles Core</th>
                         <th class="text-center">Statut</th>
                         <th class="text-end pe-4">Actions</th>
@@ -30,7 +30,6 @@
                                 <small class="text-muted">v{$plugin.version}</small>
                             </td>
 
-                            {*  NOUVELLE CELLULE : GESTION DES TYPES DE PLUGINS *}
                             <td class="text-center">
                                 {assign var="p_type" value=$plugin.type|default:'backend'}
 
@@ -50,6 +49,10 @@
                                     <span class="badge bg-warning bg-opacity-10 text-warning border border-warning-subtle px-2 py-1" title="Plugin complet (Page publique + Widgets)">
                                         <i class="bi bi-layers-fill me-1"></i> Hybride
                                     </span>
+                                {elseif $p_type == 'addon'}
+                                    <span class="badge bg-success bg-opacity-10 text-success border border-success-subtle px-2 py-1" title="Extension pour un autre plugin (Ex: Module de paiement)">
+                                        <i class="bi bi-plug-fill me-1"></i> Addon
+                                    </span>
                                 {else}
                                     <span class="badge bg-light text-dark border">
                                         {$p_type|escape}
@@ -58,17 +61,33 @@
                             </td>
 
                             <td class="text-center">
-                                <div class="d-flex justify-content-center gap-2">
-                                    <i class="bi bi-house-door {if isset($plugin.home) && $plugin.home}text-primary{else}text-light{/if}" title="Home"></i>
-                                    <i class="bi bi-person-badge {if isset($plugin.about) && $plugin.about}text-primary{else}text-light{/if}" title="About"></i>
-                                    <i class="bi bi-file-earmark-text {if isset($plugin.pages) && $plugin.pages}text-primary{else}text-light{/if}" title="Pages"></i>
-                                    <i class="bi bi-newspaper {if isset($plugin.news) && $plugin.news}text-primary{else}text-light{/if}" title="News"></i>
-                                    <i class="bi bi-collection {if isset($plugin.catalog) && $plugin.catalog}text-primary{else}text-light{/if}" title="Catalog"></i>
-                                    <i class="bi bi-folder {if isset($plugin.category) && $plugin.category}text-primary{else}text-light{/if}" title="Category"></i>
-                                    <i class="bi bi-box-seam {if isset($plugin.product) && $plugin.product}text-primary{else}text-light{/if}" title="Product"></i>
-                                    <i class="bi bi-search {if isset($plugin.seo) && $plugin.seo}text-primary{else}text-light{/if}" title="SEO"></i>
-                                </div>
+                                {if $p_type == 'addon'}
+                                    {* CORRECTION DE L'ERREUR SMARTY 'KEY' ICI *}
+                                    {if isset($plugin.plugin_targets) && is_array($plugin.plugin_targets) && count($plugin.plugin_targets) > 0}
+                                        {assign var="target_name" value=""}
+                                        {* On boucle sur le tableau et on récupère la première clé (le nom du module cible) *}
+                                        {foreach from=$plugin.plugin_targets key=k item=v}
+                                            {assign var="target_name" value=$k}
+                                            {break} {* On s'arrête après la première *}
+                                        {/foreach}
+                                        <span class="text-muted small fst-italic">Lié à <strong>{$target_name}</strong></span>
+                                    {else}
+                                        <span class="text-muted small fst-italic">Lié à un autre plugin</span>
+                                    {/if}
+                                {else}
+                                    <div class="d-flex justify-content-center gap-2">
+                                        <i class="bi bi-house-door {if isset($plugin.home) && $plugin.home}text-primary{else}text-light{/if}" title="Home"></i>
+                                        <i class="bi bi-person-badge {if isset($plugin.about) && $plugin.about}text-primary{else}text-light{/if}" title="About"></i>
+                                        <i class="bi bi-file-earmark-text {if isset($plugin.pages) && $plugin.pages}text-primary{else}text-light{/if}" title="Pages"></i>
+                                        <i class="bi bi-newspaper {if isset($plugin.news) && $plugin.news}text-primary{else}text-light{/if}" title="News"></i>
+                                        <i class="bi bi-collection {if isset($plugin.catalog) && $plugin.catalog}text-primary{else}text-light{/if}" title="Catalog"></i>
+                                        <i class="bi bi-folder {if isset($plugin.category) && $plugin.category}text-primary{else}text-light{/if}" title="Category"></i>
+                                        <i class="bi bi-box-seam {if isset($plugin.product) && $plugin.product}text-primary{else}text-light{/if}" title="Product"></i>
+                                        <i class="bi bi-search {if isset($plugin.seo) && $plugin.seo}text-primary{else}text-light{/if}" title="SEO"></i>
+                                    </div>
+                                {/if}
                             </td>
+
                             <td class="text-center">
                                 {if $plugin.is_installed}
                                     <span class="badge bg-success-soft text-success px-3">
@@ -107,7 +126,9 @@
         </div>
     </div>
 
+    {* Modale de confirmation *}
     <div class="modal fade" id="pluginConfirmModal" tabindex="-1" aria-labelledby="pluginModalTitle" aria-hidden="true">
+        {* ... (reste du code de la modale inchangé) ... *}
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content border-0 shadow">
                 <div class="modal-header bg-light border-bottom-0">
