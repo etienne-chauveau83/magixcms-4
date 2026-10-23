@@ -220,7 +220,7 @@ class NewsPresenter
             if (!empty($publisher)) $schema['publisher'] = $publisher;
         }
 
-        $htmlCode = '<script type="application/ld+json">' . "\n" . json_encode($schema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n" . '</script>';
+        $htmlCode = '<script type="application/ld+json">' . "\n" . json_encode($schema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) . "\n" . '</script>';
 
         return [
             'html' => $htmlCode,

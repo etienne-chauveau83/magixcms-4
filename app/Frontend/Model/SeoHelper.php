@@ -6,6 +6,14 @@ namespace App\Frontend\Model;
 class SeoHelper
 {
     /**
+     * Drapeaux json_encode sûrs pour une insertion dans une balise <script>.
+     * JSON_HEX_TAG (et consorts) échappent les chevrons et empêchent qu'une
+     * valeur contenant "</script>" ne referme la balise et n'injecte du HTML
+     * (XSS stocké à l'échelle du site via les données société / contenu).
+     */
+    private const JSON_LD_FLAGS = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT;
+
+    /**
      * Génère le JSON-LD global de la page d'accueil (WebSite + Organization via @graph)
      */
     /**
@@ -110,7 +118,7 @@ class SeoHelper
             ]
         ];
 
-        return '<script type="application/ld+json">' . "\n" . json_encode($schema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n" . '</script>';
+        return '<script type="application/ld+json">' . "\n" . json_encode($schema, self::JSON_LD_FLAGS) . "\n" . '</script>';
     }
 
     /**
@@ -143,7 +151,7 @@ class SeoHelper
             'itemListElement' => $elements
         ];
 
-        return '<script type="application/ld+json">' . "\n" . json_encode($schema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n" . '</script>';
+        return '<script type="application/ld+json">' . "\n" . json_encode($schema, self::JSON_LD_FLAGS) . "\n" . '</script>';
     }
 
     /**
@@ -160,7 +168,7 @@ class SeoHelper
             'url'      => $baseUrl
         ];
 
-        return '<script type="application/ld+json">' . "\n" . json_encode($schema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n" . '</script>';
+        return '<script type="application/ld+json">' . "\n" . json_encode($schema, self::JSON_LD_FLAGS) . "\n" . '</script>';
     }
     /**
      * Génère le JSON-LD FAQPage de manière universelle
