@@ -61,11 +61,22 @@ class ThemeController extends BaseController
             $this->jsonResponse(false, 'Session invalide.');
         }
 
-        $themeName = $_POST['theme'] ?? '';
-        $skinPath = ROOT_DIR . 'skin' . DS . $themeName;
+        $themeName = (string)($_POST['theme'] ?? '');
 
-        // On vérifie que le dossier du thème existe physiquement avant de l'enregistrer
-        if (!empty($themeName) && is_dir($skinPath)) {
+        // Nom de thème strict : lettres, chiffres, tiret et underscore uniquement.
+        // Empêche toute traversée de chemin (ex: "../media") qui relocaliserait
+        // les répertoires de templates/plugins/config de Smarty hors de skin/.
+        if (!preg_match('/^[A-Za-z0-9_-]+$/', $themeName)) {
+            $this->jsonResponse(false, "Nom de thème invalide.");
+        }
+
+        $skinDir  = ROOT_DIR . 'skin' . DS;
+        $skinPath = realpath($skinDir . $themeName);
+        $realBase = realpath($skinDir);
+
+        // Le dossier résolu doit exister ET rester strictement sous skin/.
+        if ($skinPath !== false && $realBase !== false && is_dir($skinPath)
+            && str_starts_with($skinPath, $realBase . DS)) {
             $db = new ThemeDb();
             if ($db->setActiveTheme($themeName)) {
                 $this->jsonResponse(true, "Le thème '" . ucfirst($themeName) . "' est maintenant actif !");

@@ -149,6 +149,12 @@ class TranslationController extends BaseController
         $domain = $_POST['domain'] ?? 'theme';
         $contents = $_POST['content'] ?? []; // Format: ['fr' => ['Groupe' => ['key' => 'val']]]
 
+        // Le domaine est soit "theme", soit un nom de dossier de plugin strict.
+        // Empêche une traversée de chemin via le paramètre domain (branche else).
+        if ($domain !== 'theme' && !preg_match('/^[A-Za-z0-9_]+$/', (string)$domain)) {
+            $this->jsonResponse(false, 'Domaine de traduction invalide.');
+        }
+
         $newKey = trim($_POST['new_key'] ?? '');
         $newGroup = trim($_POST['new_group'] ?? 'Général'); //  Le groupe de la nouvelle variable
         $newValues = $_POST['new_value'] ?? [];
@@ -164,6 +170,14 @@ class TranslationController extends BaseController
         $success = true;
 
         foreach ($contents as $iso => $transData) {
+            // Le code de langue est la clé de premier niveau de content[] et sert
+            // à construire le nom du fichier .conf. On exige un code ISO strict
+            // (2 à 3 lettres minuscules) pour empêcher l'écriture d'un fichier à
+            // un chemin arbitraire (ex: content[../../../media/x]).
+            if (!is_string($iso) || !preg_match('/^[a-z]{2,3}$/', $iso)) {
+                $this->jsonResponse(false, 'Code de langue invalide.');
+            }
+
             $filePath = $baseDir . $iso . '.conf';
 
             // Ajout de la nouvelle variable dans le bon groupe

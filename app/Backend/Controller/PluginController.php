@@ -22,6 +22,16 @@ class PluginController extends BaseController
         $this->index();
     }
 
+    /**
+     * Valide un nom de dossier de plugin (lettres, chiffres, underscore).
+     * Empêche toute traversée de chemin via le paramètre "name" (lecture de
+     * install.sql / suppression récursive hors du dossier plugins).
+     */
+    private function isValidPluginName(string $name): bool
+    {
+        return $name !== '' && (bool)preg_match('/^[A-Za-z0-9_]+$/', $name);
+    }
+
     private function index(): void
     {
         $db = new PluginDb();
@@ -80,9 +90,9 @@ class PluginController extends BaseController
 
     public function install(): void
     {
-        $pluginName = $_GET['name'] ?? '';
-        if (empty($pluginName)) {
-            $this->jsonResponse(false, 'Nom du plugin manquant.');
+        $pluginName = (string)($_GET['name'] ?? '');
+        if (!$this->isValidPluginName($pluginName)) {
+            $this->jsonResponse(false, 'Nom de plugin invalide.');
         }
 
         $pluginPath = ROOT_DIR . 'plugins' . DS . $pluginName;
@@ -208,9 +218,9 @@ class PluginController extends BaseController
 
     public function uninstall(): void
     {
-        $pluginName = $_GET['name'] ?? ($_POST['name'] ?? '');
-        if (empty($pluginName)) {
-            $this->jsonResponse(false, 'Nom du plugin manquant.');
+        $pluginName = (string)($_GET['name'] ?? ($_POST['name'] ?? ''));
+        if (!$this->isValidPluginName($pluginName)) {
+            $this->jsonResponse(false, 'Nom de plugin invalide.');
         }
 
         $pluginPath = ROOT_DIR . 'plugins' . DS . $pluginName;

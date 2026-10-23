@@ -61,6 +61,17 @@ class SettingController extends BaseController
         $db = new SettingDb();
         $success = true;
 
+        // Liste blanche des réglages réellement modifiables via ce formulaire.
+        // Tout autre nom (ex: "theme", qui relocalise les répertoires Smarty et
+        // possède son propre contrôleur) est ignoré : empêche l'écriture de
+        // réglages système arbitraires via cet endpoint générique.
+        $editableSettings = [
+            'analytics', 'cache', 'calendar_enabled', 'content_css', 'geminiai',
+            'holder_bgcolor', 'logo_percent', 'maintenance', 'mode', 'news_per_page',
+            'price_display', 'product_catalog', 'product_per_page', 'robots',
+            'ssl', 'vat_rate'
+        ];
+
         $booleanKeys = [
             'ssl', 'maintenance', 'geminiai', 'product_catalog', 'calendar_enabled'
         ];
@@ -74,6 +85,10 @@ class SettingController extends BaseController
         }
 
         foreach ($postedSettings as $name => $value) {
+            if (!in_array($name, $editableSettings, true)) {
+                continue; // réglage non éditable via ce formulaire : ignoré
+            }
+
             $cleanValue = FormTool::simpleClean((string)$value);
 
             if (!$db->updateSetting($name, $cleanValue)) {
