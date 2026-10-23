@@ -29,6 +29,19 @@ class EmployeeController extends BaseController
         $this->index();
     }
 
+    /**
+     * Rôle (id_role) de l'administrateur actuellement authentifié.
+     */
+    private function currentActorRole(): int
+    {
+        $actorId = (int)$this->session->get('id_admin');
+        if ($actorId <= 0) {
+            return 0;
+        }
+        $actor = (new EmployeeDb())->fetchEmployeeById($actorId);
+        return (int)($actor['id_role'] ?? 0);
+    }
+
     private function index(): void
     {
         $db = new EmployeeDb();
@@ -112,8 +125,16 @@ class EmployeeController extends BaseController
         }
 
         // Vérification de la robustesse avec l'outil de sécurité
-        if (!PasswordTool::checkStrength($password, 6)) {
-            $this->jsonResponse(false, 'Le mot de passe doit contenir au moins 6 caractères (incluant majuscule, minuscule, chiffre et caractère spécial).');
+        if (!PasswordTool::checkStrength($password, 12)) {
+            $this->jsonResponse(false, 'Le mot de passe doit contenir au moins 12 caractères (incluant majuscule, minuscule, chiffre et caractère spécial).');
+        }
+
+        // Plafond de privilège : seul un super-administrateur (role 1) peut
+        // attribuer le rôle super-administrateur. Empêche une élévation de
+        // privilège par un administrateur de rang inférieur.
+        $idRole = (int)($_POST['id_role'] ?? 0);
+        if ($idRole === 1 && $this->currentActorRole() !== 1) {
+            $this->jsonResponse(false, "Vous n'êtes pas autorisé à attribuer le rôle super-administrateur.");
         }
 
         $data = [
@@ -135,7 +156,6 @@ class EmployeeController extends BaseController
         $newId = $db->insertEmployee($data);
 
         if ($newId) {
-            $idRole = (int)($_POST['id_role'] ?? 0);
             $db->syncEmployeeRole($newId, $idRole);
 
             $this->jsonResponse(true, 'Employé créé avec succès.', ['type' => 'add', 'id' => $newId]);
@@ -173,6 +193,32 @@ class EmployeeController extends BaseController
             $this->jsonResponse(false, 'Session expirée.');
         }
 
+        $actorRole = $this->currentActorRole();
+
+        // Protection du super-administrateur principal (compte id 1) : seul un
+        // super-administrateur peut le modifier (symétrique de la garde déjà
+        // présente sur la suppression).
+        if ($id === 1 && $actorRole !== 1) {
+            $this->jsonResponse(false, "Vous n'êtes pas autorisé à modifier le super-administrateur principal.");
+        }
+
+        $target = $db->fetchEmployeeById($id);
+        if (!$target) {
+            $this->jsonResponse(false, 'Employé introuvable.');
+        }
+
+        // Un administrateur de rang inférieur ne peut pas détourner le compte
+        // d'un super-administrateur.
+        if ((int)($target['id_role'] ?? 0) === 1 && $actorRole !== 1) {
+            $this->jsonResponse(false, "Vous n'êtes pas autorisé à modifier un super-administrateur.");
+        }
+
+        // Plafond de privilège sur l'attribution de rôle (voir processAdd).
+        $idRole = (int)($_POST['id_role'] ?? 0);
+        if ($idRole === 1 && $actorRole !== 1) {
+            $this->jsonResponse(false, "Vous n'êtes pas autorisé à attribuer le rôle super-administrateur.");
+        }
+
         $email = FormTool::simpleClean($_POST['email_admin'] ?? '');
 
         if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
@@ -202,8 +248,8 @@ class EmployeeController extends BaseController
         $password = $_POST['passwd_admin'] ?? '';
         if (!empty($password)) {
             // Vérification de la robustesse
-            if (!PasswordTool::checkStrength($password, 6)) {
-                $this->jsonResponse(false, 'Le nouveau mot de passe est trop faible (inclure majuscule, minuscule, chiffre et caractère spécial).');
+            if (!PasswordTool::checkStrength($password, 12)) {
+                $this->jsonResponse(false, 'Le nouveau mot de passe est trop faible (12 caractères minimum, incluant majuscule, minuscule, chiffre et caractère spécial).');
             }
             // Utilisation de PasswordTool pour le hachage
             $data['passwd_admin'] = PasswordTool::hash($password);
@@ -211,7 +257,6 @@ class EmployeeController extends BaseController
         }
 
         if ($db->updateEmployee($id, $data)) {
-            $idRole = (int)($_POST['id_role'] ?? 0);
             $db->syncEmployeeRole($id, $idRole);
 
             $this->jsonResponse(true, 'Employé mis à jour avec succès.', ['type' => 'update']);

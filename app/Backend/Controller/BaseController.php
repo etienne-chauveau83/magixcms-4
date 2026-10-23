@@ -172,14 +172,84 @@ abstract class BaseController
         // 2. Requête propre via le fichier DB (MVC respecté)
         $db = new EmployeeDb();
         $access = $db->checkModuleAccess($idAdmin, $controllerLower);
-        //var_dump($idAdmin, $controllerLower, $access); die();
+
         // 3. Vérification du droit d'affichage ("view")
         if (!$access || (int)$access['view'] === 0) {
             $this->redirectForbidden();
         }
 
-        // 4. On assigne les permissions globales à la vue
+        // 4. Vérification du droit spécifique à l'action demandée.
+        //    Auparavant seul le bit "view" était contrôlé : un administrateur
+        //    en lecture seule pouvait déclencher n'importe quelle action
+        //    d'écriture (création, édition, suppression) — contournement
+        //    d'autorisation au niveau fonction. On exige désormais le bit
+        //    correspondant (append / edit / del).
+        //
+        //    L'action est résolue DEPUIS $_GET uniquement, à l'identique des
+        //    routeurs des contrôleurs (run() lit $_GET['action']). Lire $_POST
+        //    en priorité permettait de désynchroniser le contrôle du dispatch :
+        //    POST ?action=<écriture> + corps action=index faisait voir une
+        //    simple lecture au contrôle pendant que run() exécutait l'écriture.
+        $requestedAction = (string)($_GET['action'] ?? '');
+        $requiredBit = $this->requiredAccessBit($requestedAction);
+        if ($requiredBit !== null && (int)($access[$requiredBit] ?? 0) === 0) {
+            $this->redirectForbidden();
+        }
+
+        // 5. On assigne les permissions globales à la vue
         $this->view->assign('user_permissions', $access);
+    }
+
+    /**
+     * Détermine le bit de permission requis par une action.
+     *
+     * Deny-by-default : seules les actions de LECTURE connues se contentent du
+     * bit "view". Toute autre action (écriture connue OU inconnue/future) exige
+     * le bit correspondant — suppression (del), création (append) ou, par
+     * défaut, modification (edit). Une nouvelle action d'écriture est donc
+     * protégée automatiquement, sans dépendre d'une mise à jour de cette liste.
+     *
+     * NB : une nouvelle action de LECTURE doit être ajoutée au tableau $read,
+     * sans quoi elle exigera un droit d'écriture.
+     *
+     * @return string|null 'append' | 'edit' | 'del', ou null si lecture seule
+     */
+    private function requiredAccessBit(string $action): ?string
+    {
+        $action = strtolower(trim($action));
+
+        // 1. Actions de LECTURE du back-office : le bit "view" (déjà vérifié) suffit.
+        static $read = [
+            '', 'index', 'search', 'display', 'tinymce', 'tinymcepopup',
+            'getcontent', 'getimages', 'getimgmeta', 'getlist',
+            'getfaviconstatus', 'get_content', 'get_list', 'loadlist',
+        ];
+        if (in_array($action, $read, true)) {
+            return null;
+        }
+
+        // 2. Suppression.
+        static $del = [
+            'del', 'delete', 'remove', 'trash', 'uninstall', 'purge',
+            'clear_history', 'deletefavicons', 'processdeleteimage',
+        ];
+        if (in_array($action, $del, true)) {
+            return 'del';
+        }
+
+        // 3. Création.
+        static $append = [
+            'add', 'create', 'new', 'insert', 'import', 'install',
+            'duplicate', 'copy', 'clone',
+            'upload', 'uploadfavicon', 'uploadgallery', 'uploadimages',
+            'processuploadimages', 'save_revision',
+        ];
+        if (in_array($action, $append, true)) {
+            return 'append';
+        }
+
+        // 4. Toute autre action modifie des données : bit "edit" exigé par défaut.
+        return 'edit';
     }
 
     /**
