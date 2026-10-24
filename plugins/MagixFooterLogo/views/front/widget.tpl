@@ -16,8 +16,8 @@
 
     {if !empty($companyData.name)}
         <p class="text-white-50 small mb-0 pe-lg-4">
-            {#footer_logo_welcome#} <strong>{$companyData.name}</strong>.
-            {#footer_logo_description#}
+            <span data-translation-key="footer_logo_welcome">{#footer_logo_welcome#|escape}</span> <strong>{$companyData.name}</strong>.
+            <span data-translation-key="footer_logo_description">{#footer_logo_description#|escape}</span>
         </p>
     {/if}
 </div>

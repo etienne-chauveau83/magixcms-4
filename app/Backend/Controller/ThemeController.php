@@ -79,6 +79,7 @@ class ThemeController extends BaseController
             && str_starts_with($skinPath, $realBase . DS)) {
             $db = new ThemeDb();
             if ($db->setActiveTheme($themeName)) {
+                \App\Component\Cache\CacheManager::clearFrontend();
                 $this->jsonResponse(true, "Le thème '" . ucfirst($themeName) . "' est maintenant actif !");
             }
         }

@@ -77,6 +77,7 @@ class HomepageController extends BaseController
 
             if ($success) {
                 $db->clearPublicSqlCache('homepage');
+                \App\Component\Cache\CacheManager::clearFrontend('homepage');
 
                 $this->jsonResponse(true, 'Mise à jour réussie.', [
                     'type' => 'update',
