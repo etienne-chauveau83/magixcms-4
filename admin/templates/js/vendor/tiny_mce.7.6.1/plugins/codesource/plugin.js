@@ -11,28 +11,52 @@
     tinymce.PluginManager.add('codesource', function (editor, url) {
         let cmInstance = null;
 
-        // 1. Formateur HTML (Beautifier) ultra-léger
+        // 1. Formateur HTML (Beautifier) ultra-léger et sécurisé
         const formatHTML = function (html) {
+            // A. Extraire et sauvegarder les blocs sensibles pour préserver leur whitespace
+            const protectedBlocks = [];
+            let safeHtml = html.replace(/(<(pre|script|style|textarea)[^>]*>)([\s\S]*?)(<\/\2>)/gi, function(match) {
+                protectedBlocks.push(match);
+                // On encadre de sauts de ligne pour s'assurer qu'ils restent isolés
+                return '\n___PROTECTED_BLOCK_' + (protectedBlocks.length - 1) + '___\n';
+            });
+
             let indentLevel = 0;
-            return html
-                .replace(/>\s*</g, '>\n<') // Casse les balises collées
+            let formatted = safeHtml
+                .replace(/>\s*</g, '>\n<') // Casse les balises collées (hors blocs protégés)
                 .split('\n')
                 .map(function (line) {
                     line = line.trim();
                     if (!line) return '';
 
+                    // Restitution d'un bloc protégé avec l'indentation parente courante
+                    if (line.match(/^___PROTECTED_BLOCK_\d+___$/)) {
+                        return '  '.repeat(indentLevel) + line;
+                    }
+
+                    // Décrémenter l'indentation pour les balises fermantes
                     if (line.match(/^<\/(?!html)/)) {
                         indentLevel = Math.max(0, indentLevel - 1);
                     }
 
-                    const formatted = '  '.repeat(indentLevel) + line;
+                    const formattedLine = '  '.repeat(indentLevel) + line;
 
-                    if (line.match(/^<(?!!--|img|br|hr|input|meta|link|area|base|col|param)[^\/][^>]*>$/)) {
+                    // Incrémenter l'indentation pour les balises ouvrantes
+                    // Ignore les auto-fermantes natives et celles se terminant par "/>" (ex: <path />)
+                    if (line.match(/^<(?!\/|!--|img|br|hr|input|meta|link|area|base|col|param|source|track|embed|wbr)[^>]+>$/) && !line.endsWith('/>')) {
                         indentLevel++;
                     }
-                    return formatted;
+
+                    return formattedLine;
                 })
                 .join('\n');
+
+            // B. Restaurer le contenu exact des blocs sensibles
+            protectedBlocks.forEach(function(block, index) {
+                formatted = formatted.replace('___PROTECTED_BLOCK_' + index + '___', block);
+            });
+
+            return formatted;
         };
 
         // 2. Injection du CSS de base

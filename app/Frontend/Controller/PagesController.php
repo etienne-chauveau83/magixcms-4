@@ -111,14 +111,36 @@ class PagesController extends BaseController
                     }
                 }
             }
+            $breadcrumbs_data = [];
+            $currentParentId = (int)$rawPage['id_parent'];
+
+            // On remplace le 'while' par un 'if' pour ne cibler que le parent direct
+            if ($currentParentId > 0) {
+                $parentInfo = $db->getParentBreadcrumbInfo($currentParentId, $idLang);
+
+                if ($parentInfo) {
+                    $parentUrl = $urlTool->buildUrl([
+                        'type' => 'pages',
+                        'id'   => $parentInfo['id_pages'],
+                        'url'  => $parentInfo['url_pages'],
+                        'iso'  => $iso ?? 'fr'
+                    ]);
+
+                    $breadcrumbs_data[] = [
+                        'label' => $parentInfo['name_pages'],
+                        'url'   => $parentUrl
+                    ];
+                }
+            }
 
             // Assignation Smarty
             $this->view->assign([
-                'pages'     => $pages,
-                'json_ld'   => $jsonLdList,
-                'seo_title' => $seoTitle, //  Sécurisé
-                'seo_desc'  => $seoDesc,  //  Sécurisé
-                'hreflang'  => $hreflangUrls
+                'pages'              => $pages,
+                'parent_breadcrumbs' => $breadcrumbs_data, // Contient 0 ou 1 seul parent
+                'json_ld'            => $jsonLdList,
+                'seo_title'          => $seoTitle,
+                'seo_desc'           => $seoDesc,
+                'hreflang'           => $hreflangUrls
             ]);
         }
 

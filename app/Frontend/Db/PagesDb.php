@@ -192,4 +192,40 @@ class PagesDb extends BaseDb
 
         return $res;
     }
+
+    /**
+     * Récupère les infos basiques d'une page parente pour le fil d'ariane
+     */
+    public function getParentBreadcrumbInfo(int $parentId, int $idLang): array|false
+    {
+        $cache = $this->getSqlCache();
+        $qb = new QueryBuilder();
+
+        $qb->select([
+            'p.id_pages',
+            'p.id_parent',
+            'c.name_pages',
+            'c.url_pages'
+        ])
+            ->from('mc_cms_page', 'p')
+            ->join('mc_cms_page_content', 'c', 'p.id_pages = c.id_pages AND c.id_lang = ' . (int)$idLang)
+            ->where('p.id_pages = :id', ['id' => $parentId])
+            ->where('c.published_pages = 1');
+
+        $cacheKey = $cache->generateKey($qb->getSql(), $qb->getParams(), 'pages_breadcrumb');
+        $cachedData = $cache->get($cacheKey);
+
+        if ($cachedData !== null) {
+            return $cachedData;
+        }
+
+        $res = $this->executeRow($qb);
+
+        if ($res) {
+            $cache->set($cacheKey, $res, 3600);
+            return $res;
+        }
+
+        return false;
+    }
 }

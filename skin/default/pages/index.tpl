@@ -17,7 +17,9 @@
     <article>
 
         <header class="page-header mb-5">
-            {$breadcrumbs = [['label' => $pages.name]]}
+            {$breadcrumbs = $parent_breadcrumbs|default:[]}
+            {$breadcrumbs[] = ['label' => $pages.name]}
+
             {include file="components/breadcrumbs.tpl" breadcrumbs=$breadcrumbs}
 
             <div class="row mt-3">
