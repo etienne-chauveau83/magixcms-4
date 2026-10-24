@@ -132,12 +132,26 @@ class TranslationController extends BaseController
                 fclose($catalogLock);
             }
         }
+        $legacyIds = [];
+        foreach (array_keys($structure) as $group) {
+            $legacyIds[$group] = mb_strtolower(str_replace([' ', '&', 'é'], ['_', '', 'e'], (string)$group), 'UTF-8');
+        }
+        $idCounts = array_count_values($legacyIds);
+        $groupIds = [];
+        foreach ($legacyIds as $group => $id) {
+            // Conserve les anciens sélecteurs lorsqu'ils sont sûrs et uniques.
+            // Les autres restent stables si les rubriques sont réordonnées.
+            $groupIds[$group] = preg_match('/^[a-z0-9_-]+$/D', $id) && $idCounts[$id] === 1
+                && !preg_match('/^group-[a-f0-9]{64}$/D', $id)
+                ? $id : 'group-' . hash('sha256', (string)$group);
+        }
         $this->view->assign([
             'domain'       => $domain,
             'domain_label' => $domainLabel,
             'langs'        => $formattedLangs,
             'translations' => $translations,
             'structure'    => $structure,
+            'group_ids'    => $groupIds,
             'plugins'      => $installedPlugins,
             'hashtoken'    => $this->session->getToken(),
             'translation_context' => $domain === 'theme' ? $currentTheme : $domain,
@@ -187,7 +201,7 @@ class TranslationController extends BaseController
         }
         $newKey = trim($newKey);
         $newGroup = trim($newGroup);
-        if (($newKey !== '' && !preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/D', $newKey))
+        if (($newKey !== '' && !preg_match('/^[0-9]*[A-Za-z_][A-Za-z0-9_]*$/D', $newKey))
             || $newGroup === '' || preg_match('/[\r\n\[\]]/', $newGroup)
             || $newGroup === 'Fichier généré par Magix CMS') {
             $this->jsonResponse(false, 'Clé ou rubrique invalide.');
@@ -197,11 +211,13 @@ class TranslationController extends BaseController
                 $this->jsonResponse(false, 'Langue ou contenu invalide.');
             }
             foreach ($groups as $group => $keys) {
-                if (!is_string($group) || trim($group) === '' || preg_match('/[\r\n]/', $group) || !is_array($keys)) {
+                // PHP convertit les noms de groupes numériques en clés entières.
+                if ((!is_string($group) && !is_int($group)) || trim((string)$group) === ''
+                    || preg_match('/[\r\n]/', (string)$group) || !is_array($keys)) {
                     $this->jsonResponse(false, 'Rubrique invalide.');
                 }
                 foreach ($keys as $key => $value) {
-                    if (!is_string($key) || !preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/D', $key) || !is_string($value)) {
+                    if (!is_string($key) || !preg_match('/^[0-9]*[A-Za-z_][A-Za-z0-9_]*$/D', $key) || !is_string($value)) {
                         $this->jsonResponse(false, 'Clé ou valeur invalide.');
                     }
                     if ($newKey !== '' && $key === $newKey) {
@@ -224,10 +240,6 @@ class TranslationController extends BaseController
             }
             $baseDir = ROOT_DIR . 'plugins' . DS . $domain . DS . 'i18n' . DS . 'front' . DS;
         }
-        if (!is_dir($baseDir)) {
-            $this->jsonResponse(false, 'Le dossier des traductions est introuvable.');
-        }
-
         $context = $domain === 'theme' ? $currentTheme : $domain;
         $expectedContext = $_POST['catalog_context'] ?? '';
         $expectedVersion = $_POST['catalog_version'] ?? '';
@@ -255,6 +267,14 @@ class TranslationController extends BaseController
         $rawDefault = (new LangDb())->getDefaultLanguage() ?: ['iso_lang' => 'fr'];
         $defaultIso = is_array($rawDefault) ? $rawDefault['iso_lang'] : $rawDefault;
         $catalogIsos = array_values(array_unique(array_merge($isos, [$defaultIso])));
+        // Un thème neuf peut ne pas encore avoir de dossier i18n.
+        // Sa création reste réservée à une sauvegarde validée, jamais à la consultation.
+        $contextDir = $domain === 'theme'
+            ? ROOT_DIR . 'skin' . DS . $currentTheme
+            : ROOT_DIR . 'plugins' . DS . $domain;
+        if (!is_dir($contextDir) || (!is_dir($baseDir) && !@mkdir($baseDir, 0755, true) && !is_dir($baseDir))) {
+            $this->jsonResponse(false, 'Impossible de créer le dossier des traductions. Vérifiez ses droits.');
+        }
         $lock = @fopen($baseDir . '.translations.lock', 'c');
         if ($lock === false || !flock($lock, LOCK_EX)) {
             if (is_resource($lock)) fclose($lock);
@@ -509,7 +529,7 @@ class TranslationController extends BaseController
             }
             if ($multiline) {
                 if (str_contains($line, '"""')) $multiline = false;
-            } elseif (preg_match('/^\s*[A-Za-z_][A-Za-z0-9_]*\s*=\s*"""(.*)$/s', $line, $match)) {
+            } elseif (preg_match('/^\s*[0-9]*[A-Za-z_][A-Za-z0-9_]*\s*=\s*"""(.*)$/s', $line, $match)) {
                 $multiline = !str_contains($match[1], '"""');
             }
             $offset += strlen($line);

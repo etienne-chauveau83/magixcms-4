@@ -3,7 +3,7 @@
     Textes et traductions
 {/block}
 {block name='stylesheets' append}
-    <link rel="stylesheet" href="{$site_url}/{$baseadmin}/templates/css/translation-studio.min.css?v=18">
+    <link rel="stylesheet" href="{$site_url}/{$baseadmin}/templates/css/translation-studio.min.css?v={$smarty.now}">
 {/block}
 {block name='article'}
     <div class="translation-studio" id="translationStudio" data-preview-base="{$site_url|escape:'html'}" data-admin-path="{$baseadmin|escape:'html'}" data-domain="{$domain|escape:'html'}" data-media-url="{$site_url|escape:'html'}/{$baseadmin|escape:'html'}/templates/js/vendor/elfinder/elfinder.html" data-can-edit="{$user_permissions.edit|default:0}">
@@ -69,7 +69,7 @@
                 </div>
                 <nav id="translationSections">
                     {foreach $structure|default:[] as $groupName => $keysArr}
-                        <button type="button" class="ts-section" data-group="{$keysArr@iteration}" data-group-name="{$groupName|escape:'html'}" aria-pressed="false">
+                        <button type="button" class="ts-section" data-group="{$group_ids[$groupName]}" data-group-name="{$groupName|escape:'html'}" aria-pressed="false">
                             <i class="bi bi-folder2" aria-hidden="true"></i>
                             <span class="ts-section-name">{$groupName|escape:'html'}</span>
                             <span class="ts-section-count">{$keysArr|count}</span>
@@ -114,7 +114,7 @@
                     <div class="ts-fields" id="translationFields">
                         {foreach $langs|default:[] as $id => $iso}
                             {foreach $structure|default:[] as $groupName => $keysArr}
-                                {assign var="groupIndex" value=$keysArr@iteration}
+                                {assign var="groupIndex" value=$group_ids[$groupName]}
                                 {foreach $keysArr as $key}
                                     <article class="ts-field" data-iso="{$iso|escape:'html'}" data-group="{$groupIndex}" data-key="{$key|escape:'html'}" hidden>
                                         <div class="ts-field-heading">
@@ -159,7 +159,7 @@
                         </summary>
                         <div class="p-3">
                             <label for="translationNewKey" class="form-label">Clé du texte</label>
-                            <input type="text" name="new_key" id="translationNewKey" class="form-control mb-3" placeholder="ex. texte_bienvenue" pattern="[A-Za-z_][A-Za-z0-9_]*">
+                            <input type="text" name="new_key" id="translationNewKey" class="form-control mb-3" placeholder="ex. texte_bienvenue" pattern="[0-9]*[A-Za-z_][A-Za-z0-9_]*">
                             {include file="translation/components/group-select.tpl" group_label="Rubrique"}
                             {foreach $langs|default:[] as $id => $iso}
                                 <label for="translationNewValue-{$id}" class="form-label">Texte · {$iso|upper}</label>
@@ -260,6 +260,6 @@
     </div>
 {/block}
 {block name='javascripts' append}
-    <script src="{$site_url}/{$baseadmin}/templates/js/MagixTranslationGroups.min.js?v=18"></script>
-    <script src="{$site_url}/{$baseadmin}/templates/js/MagixTranslation.min.js?v=18"></script>
+    <script src="{$site_url}/{$baseadmin}/templates/js/MagixTranslationGroups.min.js?v={$smarty.now}"></script>
+    <script src="{$site_url}/{$baseadmin}/templates/js/MagixTranslation.min.js?v={$smarty.now}"></script>
 {/block}

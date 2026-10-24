@@ -1,7 +1,7 @@
 {* Fichier : plugins/MagixFooterMenu/views/front/widget.tpl *}
 <div class="widget-footermenu mb-4">
     <h5 data-translation-key="footer_menu_title" class="text-uppercase mb-4 fw-bold text-white border-bottom border-secondary pb-2">
-        {#footer_menu_title#|escape}
+        {#footer_menu_title#}
     </h5>
     {* Fonction récursive adaptée pour une colonne de footer *}
     {function name="renderFooterMenu" items=[] depth=0 max_depth=1}

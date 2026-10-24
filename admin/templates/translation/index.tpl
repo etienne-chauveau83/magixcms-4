@@ -70,8 +70,7 @@
                                     <div class="accordion shadow-sm" id="accordionLang{$iso}">
 
                                         {foreach $structure as $groupName => $keysArr}
-                                            {* Index de boucle : identifiant stable sans caractères du nom de groupe. *}
-                                            {$cleanGroupId = $keysArr@iteration}
+                                            {$cleanGroupId = $group_ids[$groupName]}
 
                                             {* Ajout de la classe "translation-group" pour le JS *}
                                             <div class="accordion-item border-0 mb-2 rounded overflow-hidden translation-group">
@@ -122,7 +121,7 @@
                             <div class="row g-4">
                                 <div class="col-md-6">
                                     <label for="translationNewKey" class="form-label fw-bold">Clé (Ex: texte_bienvenue)</label>
-                                    <input type="text" name="new_key" id="translationNewKey" pattern="[A-Za-z_][A-Za-z0-9_]*" {if !($user_permissions.edit|default:0)}disabled{/if} class="form-control" placeholder="Clé unique (sans espaces)">
+                                    <input type="text" name="new_key" id="translationNewKey" pattern="[0-9]*[A-Za-z_][A-Za-z0-9_]*" {if !($user_permissions.edit|default:0)}disabled{/if} class="form-control" placeholder="Clé unique (sans espaces)">
                                 </div>
                                 <div class="col-md-6">
                                     {include file="translation/components/group-select.tpl" group_label="Groupe de classement"}
@@ -160,6 +159,6 @@
 {/block}
 
 {block name='javascripts' append}
-    <script src="{$site_url}/{$baseadmin}/templates/js/MagixTranslationGroups.min.js?v=18"></script>
-    <script src="{$site_url}/{$baseadmin}/templates/js/MagixTranslationClassic.min.js?v=18"></script>
+    <script src="{$site_url}/{$baseadmin}/templates/js/MagixTranslationGroups.min.js?v={$smarty.now}"></script>
+    <script src="{$site_url}/{$baseadmin}/templates/js/MagixTranslationClassic.min.js?v={$smarty.now}"></script>
 {/block}
