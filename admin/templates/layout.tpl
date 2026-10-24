@@ -71,7 +71,7 @@
         });
     </script>
     <script src="{$site_url}/{$baseadmin}/templates/js/MagixForms.min.js"></script>
-    <script src="{$site_url}/{$baseadmin}/templates/js/MagixToast.min.js?v=3"></script>
+    <script src="{$site_url}/{$baseadmin}/templates/js/MagixToast.min.js?v={$smarty.now}"></script>
     <script src="{$site_url}/{$baseadmin}/templates/js/MagixTabManager.min.js"></script>
     <script src="{$site_url}/{$baseadmin}/templates/js/MagixTableSorter.min.js"></script>
     <script src="{$site_url}/{$baseadmin}/templates/js/MagixTableDeleter.min.js"></script>
