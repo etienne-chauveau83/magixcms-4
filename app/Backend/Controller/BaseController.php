@@ -154,6 +154,9 @@ abstract class BaseController
     /**
      * Vérifie les permissions du rôle pour le contrôleur en cours.
      */
+    /**
+     * Vérifie les permissions du rôle pour le contrôleur en cours.
+     */
     private function checkPermissions(string $currentController): void
     {
         // 1. Liste blanche des contrôleurs qui ne nécessitent pas de permissions strictes
@@ -169,17 +172,53 @@ abstract class BaseController
             $this->redirectForbidden();
         }
 
-        // 2. Requête propre via le fichier DB (MVC respecté)
+        // On récupère le rôle de l'utilisateur pour vérifier s'il est SuperAdmin
         $db = new EmployeeDb();
+        $user = $db->fetchEmployeeById($idAdmin);
+        $isSuperAdmin = ($user && (int)$user['id_role'] === 1);
+
+        // 2. Récupération des droits d'accès
         $access = $db->checkModuleAccess($idAdmin, $controllerLower);
-        //var_dump($idAdmin, $controllerLower, $access); die();
-        // 3. Vérification du droit d'affichage ("view")
-        if (!$access || (int)$access['view'] === 0) {
+
+        // Si l'utilisateur n'est pas SuperAdmin et n'a pas accès au module, on bloque
+        if (!$isSuperAdmin && (!$access || (int)$access['view'] === 0)) {
             $this->redirectForbidden();
         }
 
-        // 4. On assigne les permissions globales à la vue
-        $this->view->assign('user_permissions', $access);
+        // 3. 🛡️ PARE-FEU GRANULAIRE : Vérification des actions (POST/GET)
+        if (!$isSuperAdmin && $access) {
+            $action = $_GET['action'] ?? ($_POST['action'] ?? null);
+
+            if ($action) {
+                // Actions de suppression
+                if (in_array($action, ['delete', 'delete-selected']) && (int)$access['del'] === 0) {
+                    $this->jsonResponse(false, "Permissions insuffisantes pour supprimer.");
+                }
+
+                // Actions d'ajout
+                if (in_array($action, ['add', 'processAdd']) && (int)$access['append'] === 0) {
+                    $this->jsonResponse(false, "Permissions insuffisantes pour ajouter.");
+                }
+
+                // Actions d'édition
+                if (in_array($action, ['edit', 'processEdit', 'active-selected', 'unactive-selected']) && (int)$access['edit'] === 0) {
+                    $this->jsonResponse(false, "Permissions insuffisantes pour modifier.");
+                }
+
+                // Autres actions personnalisées
+                if (in_array($action, ['reorder', 'tinymcePopup']) && (int)$access['action'] === 0) {
+                    $this->jsonResponse(false, "Permissions d'action insuffisantes.");
+                }
+            }
+        }
+
+        // 4. On assigne les permissions globales à la vue (pour masquer/afficher les boutons dans table-forms.tpl)
+        if ($isSuperAdmin) {
+            // Le SuperAdmin a tous les droits virtuellement
+            $this->view->assign('user_permissions', ['view'=>1, 'append'=>1, 'edit'=>1, 'del'=>1, 'action'=>1]);
+        } else {
+            $this->view->assign('user_permissions', $access);
+        }
     }
 
     /**

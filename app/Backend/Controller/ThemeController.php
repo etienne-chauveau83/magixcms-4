@@ -61,11 +61,18 @@ class ThemeController extends BaseController
             $this->jsonResponse(false, 'Session invalide.');
         }
 
-        $themeName = $_POST['theme'] ?? '';
+        // 🛡️ CORRECTION PATH TRAVERSAL : On force la suppression de tout chemin ou caractère bizarre
+        $rawThemeName = $_POST['theme'] ?? '';
+        $themeName = basename(preg_replace('/[^a-zA-Z0-9_-]/', '', $rawThemeName));
+
+        if (empty($themeName)) {
+            $this->jsonResponse(false, "Nom de thème invalide.");
+        }
+
         $skinPath = ROOT_DIR . 'skin' . DS . $themeName;
 
         // On vérifie que le dossier du thème existe physiquement avant de l'enregistrer
-        if (!empty($themeName) && is_dir($skinPath)) {
+        if (is_dir($skinPath)) {
             $db = new ThemeDb();
             if ($db->setActiveTheme($themeName)) {
                 $this->jsonResponse(true, "Le thème '" . ucfirst($themeName) . "' est maintenant actif !");

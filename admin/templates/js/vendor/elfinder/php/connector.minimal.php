@@ -58,7 +58,10 @@ $opts = array(
                     'locked'  => true
                 ),
                 array(
-                    'pattern' => '/\.(php|phtml|html|js|cgi|py|sh|exe)$/i',
+                    // CORRECTION : Le filtre vérifie TOUTE la chaîne de caractères du nom de fichier,
+                    // et bloque les extensions dangereuses (php, phps, phtml, ctp, etc.)
+                    // Le \. avant (php|...) et .* à la fin permet d'attraper "fichier.php.jpg" ou "fichier.jpg.phps"
+                    'pattern' => '/\.(php[345678]?|phtml|pht|phps|phpt|pgif|inc|hphp|ctp|module|theme|engine|profile|phl|shtml|phar|tpl|js|cgi|py|sh|exe|asp|aspx|jsp)(?:\..*)?$/i',
                     'read'    => false,
                     'write'   => false,
                     'hidden'  => true,

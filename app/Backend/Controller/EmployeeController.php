@@ -98,6 +98,15 @@ class EmployeeController extends BaseController
         $email = FormTool::simpleClean($_POST['email_admin'] ?? '');
         $db = new EmployeeDb();
 
+        $idRolePosted = (int)($_POST['id_role'] ?? 0);
+        $currentUserId = (int)$this->session->get('id_admin');
+        $currentUser = $db->fetchEmployeeById($currentUserId);
+        $isCurrentUserSuperAdmin = ($currentUser && (int)$currentUser['id_role'] === 1);
+
+        if ($idRolePosted === 1 && !$isCurrentUserSuperAdmin) {
+            $this->jsonResponse(false, "Escalade de privilège bloquée : vous ne pouvez pas créer un Super-Administrateur.");
+        }
+
         if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
             $this->jsonResponse(false, 'L\'adresse e-mail est invalide.');
         }
@@ -171,6 +180,23 @@ class EmployeeController extends BaseController
         $token = $_POST['hashtoken'] ?? '';
         if (!$this->session->validateToken($token)) {
             $this->jsonResponse(false, 'Session expirée.');
+        }
+
+        // 🛡️ SÉCURITÉ ANTI-ESCALADE : Protection du SuperAdmin
+        $currentUserId = (int)$this->session->get('id_admin');
+        $currentUser = $db->fetchEmployeeById($currentUserId);
+        $isCurrentUserSuperAdmin = ($currentUser && (int)$currentUser['id_role'] === 1);
+        $idRolePosted = (int)($_POST['id_role'] ?? 0);
+
+        // Si on tente de modifier le SuperAdmin ID 1, mais qu'on n'est pas soi-même l'ID 1
+        if ($id === 1 && $currentUserId !== 1) {
+            $this->jsonResponse(false, "Opération interdite : vous ne pouvez pas modifier le Super-Administrateur principal.");
+        }
+
+        // Si on tente d'attribuer le rôle SuperAdmin (id_role = 1) à quelqu'un,
+        // alors qu'on n'est pas soi-même SuperAdmin
+        if ($idRolePosted === 1 && !$isCurrentUserSuperAdmin) {
+            $this->jsonResponse(false, "Escalade de privilège bloquée : vous ne pouvez pas attribuer le rôle Super-Administrateur.");
         }
 
         $email = FormTool::simpleClean($_POST['email_admin'] ?? '');

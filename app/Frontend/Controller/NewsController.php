@@ -163,7 +163,7 @@ class NewsController extends BaseController
             $jsonLd = '';
             if (!empty($itemListElements)) {
                 $itemListSchema = ['@context' => 'https://schema.org', '@type' => 'ItemList', 'itemListElement' => $itemListElements];
-                $jsonLd = '<script type="application/ld+json">' . "\n" . json_encode($itemListSchema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n" . '</script>';
+                $jsonLd = '<script type="application/ld+json">' . "\n" . json_encode($itemListSchema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) . "\n" . '</script>';
             }
 
             // URLs des filtres

@@ -76,7 +76,9 @@ class TranslationController extends BaseController
             }
         }
 
-        $domain = $_GET['domain'] ?? 'theme';
+        // CORRECTION PATH TRAVERSAL
+        $rawDomain = $_GET['domain'] ?? 'theme';
+        $domain = basename(preg_replace('/[^a-zA-Z0-9_-]/', '', $rawDomain));
 
         if ($domain === 'theme') {
             $i18nDir = ROOT_DIR . 'skin' . DS . $currentTheme . DS . 'i18n' . DS;
@@ -146,16 +148,19 @@ class TranslationController extends BaseController
             $this->jsonResponse(false, 'Session invalide.');
         }
 
-        $domain = $_POST['domain'] ?? 'theme';
+        // CORRECTION PATH TRAVERSAL : Sécurisation du domaine
+        $rawDomain = $_POST['domain'] ?? 'theme';
+        $domain = basename(preg_replace('/[^a-zA-Z0-9_-]/', '', $rawDomain));
+
         $contents = $_POST['content'] ?? []; // Format: ['fr' => ['Groupe' => ['key' => 'val']]]
 
         $newKey = trim($_POST['new_key'] ?? '');
-        $newGroup = trim($_POST['new_group'] ?? 'Général'); //  Le groupe de la nouvelle variable
+        $newGroup = trim($_POST['new_group'] ?? 'Général'); // Le groupe de la nouvelle variable
         $newValues = $_POST['new_value'] ?? [];
 
         if ($domain === 'theme') {
             $themeDb = new ThemeDb();
-            $currentTheme = $themeDb->getCurrentTheme();
+            $currentTheme = basename(preg_replace('/[^a-zA-Z0-9_-]/', '', $themeDb->getCurrentTheme()));
             $baseDir = ROOT_DIR . 'skin' . DS . $currentTheme . DS . 'i18n' . DS;
         } else {
             $baseDir = ROOT_DIR . 'plugins' . DS . $domain . DS . 'i18n' . DS . 'front' . DS;
@@ -163,7 +168,13 @@ class TranslationController extends BaseController
 
         $success = true;
 
-        foreach ($contents as $iso => $transData) {
+        foreach ($contents as $rawIso => $transData) {
+            // CORRECTION PATH TRAVERSAL : Sécurisation du nom de fichier (.conf)
+            $iso = basename(preg_replace('/[^a-zA-Z0-9_-]/', '', (string)$rawIso));
+            if (empty($iso)) {
+                continue; // On ignore cette entrée si elle est vide ou malveillante
+            }
+
             $filePath = $baseDir . $iso . '.conf';
 
             // Ajout de la nouvelle variable dans le bon groupe
