@@ -5,13 +5,80 @@
 class MagixToast {
 
     // Raccourcis pratiques
-    static success(message) { this.show(message, 'success'); }
-    static error(message)   { this.show(message, 'error'); }
-    static warning(message) { this.show(message, 'warning'); }
-    static info(message)    { this.show(message, 'info'); }
+    static success(message, options = {}) { this.show(message, 'success', options); }
+    static error(message, options = {})   { this.show(message, 'error', options); }
+    static warning(message, options = {}) { this.show(message, 'warning', options); }
+    static info(message, options = {})    { this.show(message, 'info', options); }
+
+    /**
+     * Conserve la mise en forme courante sans insérer le HTML reçu dans la page.
+     * Les nœuds autorisés sont recréés ; les attributs actifs sont ignorés.
+     */
+    static formatMessage(message) {
+        const template = document.createElement('template');
+        template.innerHTML = String(message ?? '');
+
+        const allowedTags = new Set([
+            'a', 'b', 'br', 'code', 'del', 'div', 'em', 'i', 'ins', 'li',
+            'mark', 'ol', 'p', 'pre', 's', 'small', 'span', 'strong', 'sub',
+            'sup', 'u', 'ul'
+        ]);
+        const blockedTags = new Set([
+            'script', 'style', 'template', 'iframe', 'object', 'embed',
+            'svg', 'math', 'noscript'
+        ]);
+        const allowedClasses = /^(?:bi(?:-[a-z0-9-]+)?|fw-(?:bold|bolder|semibold|normal|light|lighter)|fst-(?:italic|normal)|text-(?:primary|secondary|success|danger|warning|info|light|dark|body|muted|white|decoration-(?:underline|line-through|none))|m[se]-[0-3])$/;
+
+        const appendNodes = (source, target) => {
+            for (const node of source.childNodes) {
+                if (node.nodeType === Node.TEXT_NODE) {
+                    target.appendChild(document.createTextNode(node.textContent));
+                    continue;
+                }
+                if (node.nodeType !== Node.ELEMENT_NODE) continue;
+
+                const tag = node.localName;
+                if (node.namespaceURI !== 'http://www.w3.org/1999/xhtml' || blockedTags.has(tag)) continue;
+                if (!allowedTags.has(tag)) {
+                    appendNodes(node, target);
+                    continue;
+                }
+
+                const element = document.createElement(tag);
+                const classes = Array.from(node.classList).filter(name => allowedClasses.test(name));
+                if (classes.length) element.className = classes.join(' ');
+
+                if (tag === 'a') {
+                    const href = node.getAttribute('href');
+                    if (href) {
+                        try {
+                            const url = new URL(href, document.baseURI);
+                            if (['http:', 'https:', 'mailto:', 'tel:'].includes(url.protocol)) {
+                                element.setAttribute('href', url.href);
+                            }
+                        } catch (error) {
+                            // Un lien invalide reste affiché comme du texte.
+                        }
+                    }
+                    if (node.hasAttribute('title')) element.setAttribute('title', node.getAttribute('title'));
+                    if (node.getAttribute('target') === '_blank') {
+                        element.setAttribute('target', '_blank');
+                        element.setAttribute('rel', 'noopener noreferrer');
+                    }
+                }
+
+                appendNodes(node, element);
+                target.appendChild(element);
+            }
+        };
+
+        const fragment = document.createDocumentFragment();
+        appendNodes(template.content, fragment);
+        return fragment;
+    }
 
     // Méthode principale
-    static show(message, type = 'info') {
+    static show(message, type = 'info', options = {}) {
         const container = document.getElementById('magix-toast-container');
         if (!container) {
             console.warn("MagixToast: Le conteneur #magix-toast-container est introuvable.");
@@ -26,7 +93,7 @@ class MagixToast {
             'info':    { bg: 'text-bg-info',    icon: 'bi-info-circle' }
         };
 
-        const style = config[type] || config['info'];
+        const style = Object.prototype.hasOwnProperty.call(config, type) ? config[type] : config['info'];
 
         // 1. Création de l'élément DOM du Toast
         const toastEl = document.createElement('div');
@@ -49,8 +116,13 @@ class MagixToast {
             </div>
         `;
 
-        // Les messages peuvent contenir des données saisies : aucun HTML n’est interprété.
-        toastEl.querySelector('.fw-medium').textContent = String(message ?? '');
+        // html: false affiche les données saisies telles quelles, y compris les chevrons.
+        const content = toastEl.querySelector('.fw-medium');
+        if (options?.html === false) {
+            content.textContent = String(message ?? '');
+        } else {
+            content.appendChild(this.formatMessage(message));
+        }
 
         // 3. Injection dans la page
         container.appendChild(toastEl);

@@ -64,10 +64,10 @@
                     if (!response.ok || response.redirected) throw new Error('request');
                     const data = await response.json();
                     if (data.status) {
-                        if (typeof MagixToast !== 'undefined') MagixToast.success(data.message);
+                        if (typeof MagixToast !== 'undefined') MagixToast.success(data.message, { html: false });
                         window.location.reload();
                     } else {
-                        if (typeof MagixToast !== 'undefined') MagixToast.error(data.message);
+                        if (typeof MagixToast !== 'undefined') MagixToast.error(data.message, { html: false });
                     }
                 } catch (error) {
                     if (typeof MagixToast !== 'undefined') MagixToast.error('Réinitialisation impossible. Vérifiez votre session.');
