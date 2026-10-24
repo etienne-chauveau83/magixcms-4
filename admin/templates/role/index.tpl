@@ -31,15 +31,15 @@
                             <tr>
                                 <td class="ps-4 text-muted font-monospace">#{$role.id_role}</td>
                                 <td>
-                                    <span class="fw-bold text-dark text-uppercase">{$role.role_name}</span>
+                                    <span class="fw-bold text-dark text-uppercase">{$role.role_label|escape:'html'}</span>
                                     {if $role.id_role == 1}
-                                        <span class="badge bg-danger ms-2">Super-Admin</span>
+                                        <span class="badge bg-danger ms-2">Tous les droits</span>
                                     {/if}
                                 </td>
                                 <td class="text-end pe-4">
-                                    {* Le Super-Admin (ID 1) a tous les droits par défaut, pas besoin de le brider *}
+                                    {* Le rôle Administrateur (ID 1) a tous les droits par défaut. *}
                                     {if $role.id_role == 1}
-                                        <button class="btn btn-sm btn-outline-secondary disabled" title="Le Super-Admin a tous les droits par défaut">
+                                        <button class="btn btn-sm btn-outline-secondary disabled" title="Ce rôle dispose de tous les droits par défaut">
                                             <i class="bi bi-lock-fill"></i> Intouchable
                                         </button>
                                     {else}

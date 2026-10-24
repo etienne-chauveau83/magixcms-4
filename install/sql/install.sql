@@ -111,7 +111,7 @@ INSERT INTO `mc_module` (`id_module`, `name`) VALUES
 (11, 'about'),(12, 'news'),(13, 'mailsetting'),(14, 'category'),(15, 'catalog'),
 (16, 'product'),(17, 'theme'),(18, 'plugin'),(19, 'translate'),(20, 'logo'),
 (21, 'snippet'),(22, 'company'),(23, 'menu'),(24, 'layout'),(25, 'share'),
-(26, 'imageconfig'),(27, 'holder'),(28, 'translation'),(29, 'revisions'),(30, 'seoredirect'),(31, 'newshome');
+(26, 'imageconfig'),(27, 'holder'),(28, 'translation'),(29, 'revisions'),(30, 'seoredirect'),(31, 'newshome'),(32, 'auditlog'),(33, 'securitystatus'),(34, 'loginprotection');
 
 CREATE TABLE IF NOT EXISTS `mc_admin_access` (
     `id_access` smallint UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -138,7 +138,7 @@ INSERT INTO `mc_admin_access` (`id_role`, `id_module`, `view`, `append`, `edit`,
 (1, 22, 1, 1, 1, 1, 1), (1, 23, 1, 1, 1, 1, 1), (1, 24, 1, 1, 1, 1, 1),
 (1, 25, 1, 1, 1, 1, 1), (1, 26, 1, 1, 1, 1, 1), (1, 27, 1, 1, 1, 1, 1),
 (1, 28, 1, 1, 1, 1, 1),(1, 29, 1, 1, 1, 1, 1),
-(1, 30, 1, 1, 1, 1, 1),(1, 31, 1, 1, 1, 1, 1);
+(1, 30, 1, 1, 1, 1, 1),(1, 31, 1, 1, 1, 1, 1),(1, 32, 1, 1, 1, 1, 1),(1, 33, 1, 1, 1, 1, 1),(1, 34, 1, 1, 1, 1, 1);
 
 CREATE TABLE IF NOT EXISTS `mc_admin_role_user` (
     `id_role` smallint UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -178,6 +178,33 @@ CREATE TABLE IF NOT EXISTS `mc_admin_access_rel` (
     KEY `id_admin` (`id_admin`),
     KEY `id_role` (`id_role`)
     ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `mc_admin_audit_log` (
+    `id_log` int UNSIGNED NOT NULL AUTO_INCREMENT,
+    `id_admin` smallint UNSIGNED DEFAULT NULL,
+    `email_admin` varchar(255) DEFAULT NULL,
+    `action_log` varchar(100) NOT NULL,
+    `target_log` varchar(255) DEFAULT NULL,
+    `details_log` mediumtext DEFAULT NULL,
+    `ip_log` varchar(45) DEFAULT NULL,
+    `date_register` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id_log`),
+    KEY `idx_audit_admin` (`id_admin`),
+    KEY `idx_audit_date` (`date_register`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `mc_admin_login_attempt` (
+    `id_attempt` bigint UNSIGNED NOT NULL AUTO_INCREMENT,
+    `scope` enum('ip','account') NOT NULL,
+    `subject_hash` char(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    `subject_label` varchar(255) NOT NULL,
+    `ip_attempt` varchar(45) NOT NULL,
+    `email_attempt` varchar(255) NOT NULL,
+    `date_attempt` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    PRIMARY KEY (`id_attempt`),
+    KEY `idx_login_subject` (`scope`, `subject_hash`, `date_attempt`),
+    KEY `idx_login_expiry` (`date_attempt`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 
 CREATE TABLE IF NOT EXISTS `mc_admin_dashboard` (
@@ -786,6 +813,20 @@ INSERT INTO `mc_setting` (`name`, `value`, `type`, `label`, `category`) VALUES
 ('holder_bgcolor', '#ffffff', 'string', 'color bg replacement image', 'advanced'),
 ('logo_percent', '50', 'int', 'Logo size percentage', 'advanced'),
 ('geminiai', '0', 'int', 'Gemini AI', 'advanced');
+
+-- Security settings
+INSERT INTO `mc_setting` (`name`, `value`, `type`, `label`, `category`) VALUES
+('sec_audit_retention_days', '90', 'int', 'Audit log retention (days)', 'security'),
+('sec_audit_max_rows', '50000', 'int', 'Audit log max rows', 'security'),
+('sec_bruteforce_enabled', '1', 'int', 'Login brute-force protection enabled', 'security'),
+('sec_bruteforce_max', '5', 'int', 'Login brute-force failure threshold', 'security'),
+('sec_bruteforce_window', '15', 'int', 'Login brute-force window (minutes)', 'security'),
+('sec_alert_bruteforce', '1', 'int', 'Alert on brute-force lockout', 'security'),
+('sec_alert_superadmin', '1', 'int', 'Alert on administrator creation/role assignment', 'security'),
+('sec_alert_email', NULL, 'string', 'Security alert recipient e-mail', 'security'),
+('sec_dashboard_widget', '1', 'int', 'Show security tile on dashboard', 'security'),
+('sec_superadmin_threshold', '3', 'int', 'Unrestricted account count warning threshold', 'security'),
+('sec_trusted_proxies', NULL, 'string', 'Trusted proxy IPs/CIDRs for client IP resolution', 'security');
 
 CREATE TABLE IF NOT EXISTS `mc_share_network` (
     `id_share` int UNSIGNED NOT NULL AUTO_INCREMENT,

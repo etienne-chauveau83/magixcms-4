@@ -50,6 +50,11 @@ Conformément à l'approche de Magix CMS, **l'installation ne nécessite pas Com
 3. Assurez-vous que les dossiers `upload/` et `var/` disposent des droits d'écriture (CHMOD 755 ou 777 selon votre configuration serveur).
 4. Configurez vos accès à la base de données dans le fichier de configuration dédié.
 
+### Mise à jour : sécurité de l’administration
+Sur une installation existante, sauvegardez la base puis appliquez
+`install/sql/migration-security-module.sql` avant de déployer les nouveaux fichiers.
+Une installation neuve utilise directement le schéma inclus.
+
 ---
 
 ## 📄 Licence

@@ -75,6 +75,19 @@ class EmployeeDb extends BaseDb
     }
 
     /**
+     * Récupère tous les comptes (id, email, hash, actif, rôle) pour l'audit
+     * de sécurité (détection de mots de passe vides, comptes inactifs, etc.).
+     */
+    public function fetchAccountsForAudit(): array|false
+    {
+        $qb = new QueryBuilder();
+        $qb->select(['e.id_admin', 'e.email_admin', 'e.passwd_admin', 'e.active_admin', 'rel.id_role'])
+            ->from('mc_admin_employee', 'e')
+            ->leftJoin('mc_admin_access_rel', 'rel', 'e.id_admin = rel.id_admin');
+        return $this->executeAll($qb);
+    }
+
+    /**
      * Insère un nouvel employé
      */
     public function insertEmployee(array $data): int|false
@@ -112,12 +125,16 @@ class EmployeeDb extends BaseDb
         // 1. Nettoyage des liaisons de rôles
         $qbRel = new QueryBuilder();
         $qbRel->delete('mc_admin_access_rel')->whereIn('id_admin', $ids);
-        $this->executeDelete($qbRel);
+        if (!$this->executeDelete($qbRel)) {
+            return false;
+        }
 
         // 2. Nettoyage des sessions actives
         $qbSess = new QueryBuilder();
         $qbSess->delete('mc_admin_session')->whereIn('id_admin', $ids);
-        $this->executeDelete($qbSess);
+        if (!$this->executeDelete($qbSess)) {
+            return false;
+        }
 
         // 3. Suppression de l'employé
         $qb = new QueryBuilder();
@@ -147,7 +164,9 @@ class EmployeeDb extends BaseDb
         // 1. Nettoyage
         $qbDel = new QueryBuilder();
         $qbDel->delete('mc_admin_access_rel')->where('id_admin = :id', ['id' => $idAdmin]);
-        $this->executeDelete($qbDel);
+        if (!$this->executeDelete($qbDel)) {
+            return false;
+        }
 
         // 2. Insertion
         if ($idRole > 0) {

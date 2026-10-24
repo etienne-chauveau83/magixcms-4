@@ -131,11 +131,14 @@
         {assign var="show_transl" value=($is_admin || !empty($menu_perms.translation))}
         {assign var="show_rev" value=($is_admin || !empty($menu_perms.revisions))}
         {assign var="show_seoredirect" value=($is_admin || !empty($menu_perms.seoredirect))} {*  AJOUT : Perm pour SeoRedirect *}
+        {* Écrans de supervision sécurité (core) rattachés à la Configuration *}
+        {assign var="show_secstatus" value=($is_admin || !empty($menu_perms.securitystatus))}
+        {assign var="show_loginprot" value=($is_admin || !empty($menu_perms.loginprotection))}
+        {assign var="show_auditlog" value=($is_admin || !empty($menu_perms.auditlog))}
 
-        {if $show_company || $show_setting || $show_domain || $show_lang || $show_mail || $show_transl || $show_rev || $show_seoredirect}
+        {if $show_company || $show_setting || $show_domain || $show_lang || $show_mail || $show_transl || $show_rev || $show_seoredirect || $show_secstatus || $show_loginprot || $show_auditlog}
             <li class="mb-1">
-                {*  AJOUT : On inclut seoredirect pour garder le menu ouvert *}
-                {assign var="is_config" value=($current_c == 'company' || $current_c == 'setting' || $current_c == 'mailsetting' || $current_c == 'domain' || $current_c == 'lang' || $current_c == 'translation' || $current_c == 'revisions' || $current_c == 'seoredirect')}
+                {assign var="is_config" value=($current_c == 'company' || $current_c == 'setting' || $current_c == 'mailsetting' || $current_c == 'domain' || $current_c == 'lang' || $current_c == 'translation' || $current_c == 'revisions' || $current_c == 'seoredirect' || $current_c == 'securitystatus' || $current_c == 'loginprotection' || $current_c == 'auditlog')}
                 <button class="btn btn-toggle w-100 text-start d-flex align-items-center rounded border-0 {if !$is_config}collapsed{/if}"
                         data-bs-toggle="collapse" data-bs-target="#menu-config" aria-expanded="{if $is_config}true{else}false{/if}">
                     <i class="bi bi-gear fs-5 me-3"></i><span class="menu-text">Configuration</span>
@@ -152,6 +155,16 @@
 
                         {*  AJOUT : Le lien vers SeoRedirect *}
                         {if $show_seoredirect}<li><a href="index.php?controller=SeoRedirect" class="text-decoration-none rounded d-flex align-items-center mt-1 {if $current_c == 'seoredirect'}active-sub{/if}"><i class="bi bi-sign-turn-right me-2 opacity-75"></i> Redirections SEO</a></li>{/if}
+
+                        {* --- Section Sécurité (supervision) --- *}
+                        {if $show_secstatus || $show_loginprot || $show_auditlog}
+                            <li class="mt-3 mb-1 px-1">
+                                <span class="d-block text-uppercase fw-semibold text-white-50 border-top border-secondary pt-2" style="font-size:.68rem;letter-spacing:.07em;">Sécurité</span>
+                            </li>
+                        {/if}
+                        {if $show_secstatus}<li><a href="index.php?controller=SecurityStatus" class="text-decoration-none rounded d-flex align-items-center mt-1 {if $current_c == 'securitystatus'}active-sub{/if}"><i class="bi bi-shield-check me-2 opacity-75"></i> État de sécurité</a></li>{/if}
+                        {if $show_loginprot}<li><a href="index.php?controller=LoginProtection" class="text-decoration-none rounded d-flex align-items-center mt-1 {if $current_c == 'loginprotection'}active-sub{/if}"><i class="bi bi-shield-lock me-2 opacity-75"></i> Protection des connexions</a></li>{/if}
+                        {if $show_auditlog}<li><a href="index.php?controller=AuditLog" class="text-decoration-none rounded d-flex align-items-center mt-1 {if $current_c == 'auditlog'}active-sub{/if}"><i class="bi bi-clipboard-data me-2 opacity-75"></i> Journal d'audit</a></li>{/if}
                     </ul>
                 </div>
             </li>

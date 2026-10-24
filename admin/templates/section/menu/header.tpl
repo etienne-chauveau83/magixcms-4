@@ -40,7 +40,7 @@
                     <li class="px-3 py-2">
                         {* Rôle dynamique *}
                         <span class="d-block fw-bold text-body-emphasis text-capitalize">
-                            {$current_user.role_name|default:'Administrateur'}
+                            {$current_user.role_label|default:$current_user.role_name|default:'Administrateur'|escape:'html'}
                         </span>
                         {* E-mail dynamique *}
                         <span class="d-block small text-muted">

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Backend\Db;
 
 use Magepattern\Component\Database\QueryBuilder;
+use App\Backend\Model\DatabaseTransaction;
 
 class RoleDb extends BaseDb
 {
@@ -38,6 +39,9 @@ class RoleDb extends BaseDb
         $qb->select('*')->from('mc_admin_access')->where('id_role = :id', ['id' => $idRole]);
 
         $rows = $this->executeAll($qb);
+        if ($rows === false) {
+            throw new \RuntimeException('Lecture des permissions impossible.');
+        }
         $permissions = [];
 
         if ($rows) {
@@ -53,26 +57,40 @@ class RoleDb extends BaseDb
      */
     public function savePermissions(int $idRole, array $matrix): bool
     {
-        // 1. On vide les anciens accès pour ce rôle
-        $qbDel = new QueryBuilder();
-        $qbDel->delete('mc_admin_access')->where('id_role = :id', ['id' => $idRole]);
-        $this->executeDelete($qbDel);
+        return DatabaseTransaction::run(function () use ($idRole, $matrix): bool {
+            // 1. On vide les anciens accès pour ce rôle
+            $qbDel = new QueryBuilder();
+            $qbDel->delete('mc_admin_access')->where('id_role = :id', ['id' => $idRole]);
+            if (!$this->executeDelete($qbDel)) {
+                throw new \RuntimeException('Suppression des anciennes permissions impossible.');
+            }
 
-        // 2. On insère les nouveaux accès
-        foreach ($matrix as $idModule => $rights) {
-            $qbIn = new QueryBuilder();
-            $qbIn->insert('mc_admin_access', [
-                'id_role'   => $idRole,
-                'id_module' => (int)$idModule,
-                'view'      => (int)($rights['view'] ?? 0),
-                'append'    => (int)($rights['append'] ?? 0),
-                'edit'      => (int)($rights['edit'] ?? 0),
-                'del'       => (int)($rights['del'] ?? 0),
-                'action'    => (int)($rights['action'] ?? 0)
-            ]);
-            $this->executeInsert($qbIn);
-        }
-        return true;
+            // 2. On insère les nouveaux accès
+            foreach ($matrix as $idModule => $rights) {
+                if (!ctype_digit((string)$idModule) || (int)$idModule < 1 || !is_array($rights)) {
+                    throw new \InvalidArgumentException('Matrice de permissions invalide.');
+                }
+                foreach (['view', 'append', 'edit', 'del', 'action'] as $bit) {
+                    if (isset($rights[$bit]) && (!is_scalar($rights[$bit]) || !in_array((string)$rights[$bit], ['0', '1'], true))) {
+                        throw new \InvalidArgumentException('Valeur de permission invalide.');
+                    }
+                }
+                $qbIn = new QueryBuilder();
+                $qbIn->insert('mc_admin_access', [
+                    'id_role'   => $idRole,
+                    'id_module' => (int)$idModule,
+                    'view'      => (int)($rights['view'] ?? 0),
+                    'append'    => (int)($rights['append'] ?? 0),
+                    'edit'      => (int)($rights['edit'] ?? 0),
+                    'del'       => (int)($rights['del'] ?? 0),
+                    'action'    => (int)($rights['action'] ?? 0)
+                ]);
+                if (!$this->executeInsert($qbIn)) {
+                    throw new \RuntimeException('Insertion des permissions impossible.');
+                }
+            }
+            return true;
+        });
     }
     /**
      * Crée un nouveau rôle dans la base de données

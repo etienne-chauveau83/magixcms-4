@@ -232,6 +232,27 @@
     {* --- ZONE 1 : COMPTEURS TOP --- *}
     <div class="row g-3 mb-4" id="dashboard-top-zone">
 
+        {* SÉCURITÉ (lien vers l'état de sécurité) *}
+        {if isset($security_score) && $security_widget|default:false && ($is_super_admin|default:false || !empty($menu_perms.securitystatus))}
+            {if $security_counts.critical > 0}{assign var="secColor" value="bg-danger text-white"}
+            {elseif $security_score >= 80}{assign var="secColor" value="bg-success text-white"}
+            {elseif $security_score >= 50}{assign var="secColor" value="bg-warning text-dark"}
+            {else}{assign var="secColor" value="bg-danger text-white"}{/if}
+            <div class="col-6 col-md-4 col-xl-3">
+                <a href="index.php?controller=SecurityStatus" class="text-decoration-none">
+                    <div class="card border-0 shadow-sm {$secColor} h-100">
+                        <div class="card-body">
+                            <h6 class="text-uppercase small"><i class="bi bi-shield-check me-2 opacity-50"></i>Sécurité</h6>
+                            <h2 class="display-6 fw-bold mb-0">{$security_score}%</h2>
+                            <div class="small opacity-75 mt-1">
+                                {if $security_counts.critical > 0}{$security_counts.critical} critique(s) à corriger{elseif $security_counts.warning > 0}{$security_counts.warning} point(s) à surveiller{else}Tout est conforme{/if}
+                            </div>
+                        </div>
+                    </div>
+                </a>
+            </div>
+        {/if}
+
         {* EMPLOYES (Toujours actif) *}
         <div class="col-6 col-md-4 col-xl-3">
             <div class="card border-0 shadow-sm bg-primary text-white h-100">

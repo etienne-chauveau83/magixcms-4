@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Backend\Controller;
 
 use App\Backend\Db\EmployeeDb;
+use App\Backend\Model\AdminRoleLabel;
+use App\Backend\Model\AdminSecurityService;
 use Magepattern\Component\HTTP\Request;
 use Magepattern\Component\Tool\FormTool;
 // --- IMPORT DES OUTILS DE SÉCURITÉ ---
@@ -21,7 +23,7 @@ class EmployeeController extends BaseController
     public function run(): void
     {
         $action = $_GET['action'] ?? null;
-        if ($action && method_exists($this, $action)) {
+        if (in_array($action, ['add', 'edit', 'delete'], true)) {
             $this->$action();
             return;
         }
@@ -69,6 +71,10 @@ class EmployeeController extends BaseController
         $result = $db->fetchAllEmployees($page, $limit, $search);
 
         if ($result !== false) {
+            foreach ($result['data'] as &$employee) {
+                $employee['role_name'] = AdminRoleLabel::account($employee);
+            }
+            unset($employee);
             $this->getItems('employee_list', $result['data'], true, $result['meta']);
         }
 
@@ -94,7 +100,7 @@ class EmployeeController extends BaseController
 
         $db = new EmployeeDb();
         $this->view->assign([
-            'roles'     => $db->fetchAllRoles(),
+            'roles'     => AdminRoleLabel::roles($db->fetchAllRoles()),
             'hashtoken' => $this->session->getToken()
         ]);
 
@@ -104,11 +110,11 @@ class EmployeeController extends BaseController
     private function processAdd(): void
     {
         $token = $_POST['hashtoken'] ?? '';
-        if (!$this->session->validateToken($token)) {
+        if (!is_string($token) || !$this->session->validateToken($token)) {
             $this->jsonResponse(false, 'Session expirée.');
         }
 
-        $email = FormTool::simpleClean($_POST['email_admin'] ?? '');
+        $email = is_string($_POST['email_admin'] ?? null) ? trim($_POST['email_admin']) : '';
         $db = new EmployeeDb();
 
         if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
@@ -129,17 +135,17 @@ class EmployeeController extends BaseController
             $this->jsonResponse(false, 'Le mot de passe doit contenir au moins 12 caractères (incluant majuscule, minuscule, chiffre et caractère spécial).');
         }
 
-        // Plafond de privilège : seul un super-administrateur (role 1) peut
-        // attribuer le rôle super-administrateur. Empêche une élévation de
+        // Plafond de privilège : seul un compte avec tous les droits (rôle 1) peut
+        // attribuer le rôle Administrateur. Empêche une élévation de
         // privilège par un administrateur de rang inférieur.
         $idRole = (int)($_POST['id_role'] ?? 0);
         if ($idRole === 1 && $this->currentActorRole() !== 1) {
-            $this->jsonResponse(false, "Vous n'êtes pas autorisé à attribuer le rôle super-administrateur.");
+            $this->jsonResponse(false, "Vous n'êtes pas autorisé à attribuer le rôle Administrateur.");
         }
 
         $data = [
             'keyuniqid_admin' => RSATool::uniqID(32),
-            'title_admin'     => in_array($_POST['title_admin'] ?? 'm', ['m', 'w']) ? $_POST['title_admin'] : 'm',
+            'title_admin'     => in_array($_POST['title_admin'] ?? 'm', ['m', 'w'], true) ? ($_POST['title_admin'] ?? 'm') : 'm',
             'firstname_admin' => ($_POST['firstname_admin'] ?? ''),
             'lastname_admin'  => ($_POST['lastname_admin'] ?? ''),
             'pseudo_admin'    => FormTool::simpleClean($_POST['pseudo_admin'] ?? ''),
@@ -153,11 +159,16 @@ class EmployeeController extends BaseController
             'active_admin'    => (int)($_POST['active_admin'] ?? 0)
         ];
 
-        $newId = $db->insertEmployee($data);
-
+        try {
+            $newId = AdminSecurityService::createEmployee($data, $idRole, $this->auditActor());
+        } catch (\Throwable $error) {
+            $this->jsonResponse(false, 'La création du compte a échoué. Aucune modification n’a été enregistrée.');
+        }
         if ($newId) {
-            $db->syncEmployeeRole($newId, $idRole);
-
+            if ($idRole === 1) {
+                \App\Backend\Model\AlertService::notify('new_superadmin', 'Nouvel administrateur : ' . $email,
+                    'Un compte avec le rôle Administrateur (tous les droits, id ' . $newId . ') vient d\'être créé.');
+            }
             $this->jsonResponse(true, 'Employé créé avec succès.', ['type' => 'add', 'id' => $newId]);
         } else {
             $this->jsonResponse(false, 'Erreur lors de la création de l\'employé.');
@@ -179,7 +190,7 @@ class EmployeeController extends BaseController
 
         $this->view->assign([
             'employee'  => $employee,
-            'roles'     => $db->fetchAllRoles(),
+            'roles'     => AdminRoleLabel::roles($db->fetchAllRoles()),
             'hashtoken' => $this->session->getToken()
         ]);
 
@@ -189,17 +200,17 @@ class EmployeeController extends BaseController
     private function processEdit(EmployeeDb $db, int $id): void
     {
         $token = $_POST['hashtoken'] ?? '';
-        if (!$this->session->validateToken($token)) {
+        if (!is_string($token) || !$this->session->validateToken($token)) {
             $this->jsonResponse(false, 'Session expirée.');
         }
 
         $actorRole = $this->currentActorRole();
 
-        // Protection du super-administrateur principal (compte id 1) : seul un
-        // super-administrateur peut le modifier (symétrique de la garde déjà
+        // Protection du créateur (compte id 1) : seul un compte avec tous les
+        // droits peut le modifier (symétrique de la garde déjà
         // présente sur la suppression).
         if ($id === 1 && $actorRole !== 1) {
-            $this->jsonResponse(false, "Vous n'êtes pas autorisé à modifier le super-administrateur principal.");
+            $this->jsonResponse(false, "Vous n'êtes pas autorisé à modifier le compte du créateur.");
         }
 
         $target = $db->fetchEmployeeById($id);
@@ -207,19 +218,19 @@ class EmployeeController extends BaseController
             $this->jsonResponse(false, 'Employé introuvable.');
         }
 
-        // Un administrateur de rang inférieur ne peut pas détourner le compte
-        // d'un super-administrateur.
+        // Un compte aux droits limités ne peut pas détourner un compte
+        // disposant de tous les droits.
         if ((int)($target['id_role'] ?? 0) === 1 && $actorRole !== 1) {
-            $this->jsonResponse(false, "Vous n'êtes pas autorisé à modifier un super-administrateur.");
+            $this->jsonResponse(false, "Vous n'êtes pas autorisé à modifier un administrateur disposant de tous les droits.");
         }
 
         // Plafond de privilège sur l'attribution de rôle (voir processAdd).
         $idRole = (int)($_POST['id_role'] ?? 0);
         if ($idRole === 1 && $actorRole !== 1) {
-            $this->jsonResponse(false, "Vous n'êtes pas autorisé à attribuer le rôle super-administrateur.");
+            $this->jsonResponse(false, "Vous n'êtes pas autorisé à attribuer le rôle Administrateur.");
         }
 
-        $email = FormTool::simpleClean($_POST['email_admin'] ?? '');
+        $email = is_string($_POST['email_admin'] ?? null) ? trim($_POST['email_admin']) : '';
 
         if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
             $this->jsonResponse(false, 'L\'adresse e-mail est invalide.');
@@ -231,7 +242,7 @@ class EmployeeController extends BaseController
 
         // On NE MET PAS 'keyuniqid_admin' ici pour ne pas casser la session en cours
         $data = [
-            'title_admin'     => in_array($_POST['title_admin'] ?? 'm', ['m', 'w']) ? $_POST['title_admin'] : 'm',
+            'title_admin'     => in_array($_POST['title_admin'] ?? 'm', ['m', 'w'], true) ? ($_POST['title_admin'] ?? 'm') : 'm',
             'firstname_admin' => ($_POST['firstname_admin'] ?? ''),
             'lastname_admin'  => ($_POST['lastname_admin'] ?? ''),
             'pseudo_admin'    => FormTool::simpleClean($_POST['pseudo_admin'] ?? ''),
@@ -256,9 +267,16 @@ class EmployeeController extends BaseController
             $data['last_change_admin'] = date('Y-m-d H:i:s');
         }
 
-        if ($db->updateEmployee($id, $data)) {
-            $db->syncEmployeeRole($id, $idRole);
-
+        try {
+            $saved = AdminSecurityService::updateEmployee($id, $data, $idRole, $this->auditActor());
+        } catch (\Throwable $error) {
+            $this->jsonResponse(false, 'La mise à jour a échoué. Aucune modification n’a été enregistrée.');
+        }
+        if ($saved) {
+            if ((int)$saved['after']['id_role'] === 1 && (int)($saved['before']['id_role'] ?? 0) !== 1) {
+                \App\Backend\Model\AlertService::notify('superadmin_promote', 'Attribution du rôle Administrateur : ' . $email,
+                    'Le compte id ' . $id . ' a reçu le rôle Administrateur (tous les droits).');
+            }
             $this->jsonResponse(true, 'Employé mis à jour avec succès.', ['type' => 'update']);
         } else {
             $this->jsonResponse(false, 'Erreur lors de la mise à jour.');
@@ -267,16 +285,23 @@ class EmployeeController extends BaseController
 
     public function delete(): void
     {
+        $token = $_POST['hashtoken'] ?? '';
+        if (!Request::isMethod('POST') || !is_string($token) || !$this->session->validateToken($token)) {
+            $this->jsonResponse(false, 'Requête invalide ou session expirée.');
+        }
         $ids = $_POST['ids'] ?? [$_POST['id'] ?? null];
         $cleanIds = array_filter(array_map('intval', (array)$ids));
 
         if (!empty($cleanIds)) {
             if (in_array(1, $cleanIds)) {
-                $this->jsonResponse(false, 'Impossible de supprimer le super-administrateur principal (ID 1).');
+                $this->jsonResponse(false, 'Impossible de supprimer le compte du créateur (ID 1).');
             }
 
-            if ((new EmployeeDb())->deleteEmployees($cleanIds)) {
+            try {
+                AdminSecurityService::deleteEmployees($cleanIds, $this->auditActor());
                 $this->jsonResponse(true, 'Employé(s) supprimé(s).');
+            } catch (\Throwable $error) {
+                $this->jsonResponse(false, 'La suppression a échoué. Aucune modification n’a été enregistrée.');
             }
         }
         $this->jsonResponse(false, 'Erreur lors de la suppression.');

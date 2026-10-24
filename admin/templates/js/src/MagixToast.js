@@ -43,11 +43,14 @@ class MagixToast {
             <div class="d-flex">
                 <div class="toast-body d-flex align-items-center">
                     <i class="bi ${style.icon} fs-5 me-3"></i>
-                    <span class="fw-medium">${message}</span>
+                    <span class="fw-medium"></span>
                 </div>
                 <button type="button" class="btn-close ${closeBtnClass} me-2 m-auto" data-bs-dismiss="toast" aria-label="Fermer"></button>
             </div>
         `;
+
+        // Les messages peuvent contenir des données saisies : aucun HTML n’est interprété.
+        toastEl.querySelector('.fw-medium').textContent = String(message ?? '');
 
         // 3. Injection dans la page
         container.appendChild(toastEl);

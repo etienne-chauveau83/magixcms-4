@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Backend\Controller;
 
 use App\Backend\Db\LoginDb;
@@ -7,6 +9,8 @@ use Magepattern\Component\HTTP\Request;
 use Magepattern\Component\Tool\FormTool;
 use Magepattern\Component\Tool\StringTool;
 use Magepattern\Component\Tool\MailTool;
+use App\Backend\Model\LoginGuard;
+use App\Backend\Model\AlertService;
 
 class LoginController extends BaseController
 {
@@ -82,9 +86,9 @@ class LoginController extends BaseController
      */
     private function processLogin(): void
     {
-        $email     = Request::isPost('email_admin') ? FormTool::simpleClean($_POST['email_admin']) : '';
-        $password  = Request::isPost('passwd_admin') ? FormTool::simpleClean($_POST['passwd_admin']) : '';
-        $csrfToken = Request::isPost('hashtoken') ? FormTool::simpleClean($_POST['hashtoken']) : '';
+        $email = is_string($_POST['email_admin'] ?? null) ? trim($_POST['email_admin']) : '';
+        $password = is_string($_POST['passwd_admin'] ?? null) ? $_POST['passwd_admin'] : '';
+        $csrfToken = is_string($_POST['hashtoken'] ?? null) ? $_POST['hashtoken'] : '';
 
         // Vérification CSRF avec la session héritée du BaseController
         if (!$this->session->validateToken($csrfToken)) {
@@ -93,7 +97,40 @@ class LoginController extends BaseController
             return;
         }
 
-        $adminData = $this->authenticateAdmin($email, $password);
+        $ip = LoginGuard::currentIp();
+        $guardEnabled = LoginGuard::enabled();
+        if ($guardEnabled && !LoginGuard::acquire($ip, $email)) {
+            $this->view->assign('error', 'Connexion temporairement indisponible. Réessayez dans quelques instants.');
+            $this->showForm();
+            return;
+        }
+
+        $thresholds = [];
+        try {
+            if (LoginGuard::isBlocked($ip, $email)) {
+                $this->view->assign('error', 'Trop de tentatives de connexion. Réessayez dans quelques instants.');
+                $this->showForm();
+                return;
+            }
+
+            $adminData = filter_var($email, FILTER_VALIDATE_EMAIL) !== false
+                ? $this->authenticateAdmin($email, $password) : null;
+            if ($adminData === null) {
+                $thresholds = $guardEnabled ? LoginGuard::recordFailure($ip, $email) : [];
+                $this->logAudit('login.failure', null, $email);
+            } elseif ($guardEnabled) {
+                LoginGuard::successfulLogin($email);
+            }
+        } catch (\Throwable $e) {
+            $this->logger->log('Protection des connexions indisponible.', 'error');
+            $this->view->assign('error', 'Connexion temporairement indisponible. Réessayez dans quelques instants.');
+            $this->showForm();
+            return;
+        } finally {
+            if ($guardEnabled) {
+                LoginGuard::release($ip, $email);
+            }
+        }
 
         if ($adminData !== null) {
             $this->session->regenerate();
@@ -102,10 +139,16 @@ class LoginController extends BaseController
             $this->session->set('id_admin', $adminData['id_admin']);
             $this->session->set('email_admin', $adminData['email_admin']);
 
+            $this->logAudit('login.success', 'id=' . $adminData['id_admin']);
             header('Location: index.php?controller=Dashboard');
             exit;
         }
 
+        // L’envoi SMTP se fait après libération des verrous de limitation.
+        if ($thresholds !== []) {
+            AlertService::notify('bruteforce', 'Protection des connexions : seuil atteint',
+                'Seuil atteint pour ' . implode(' et ', $thresholds) . ' (IP : ' . $ip . ', e-mail tenté : ' . $email . ').');
+        }
         $this->view->assign('error', 'Email ou mot de passe incorrect.');
         $this->showForm();
     }

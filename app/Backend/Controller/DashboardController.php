@@ -6,6 +6,8 @@ namespace App\Backend\Controller;
 
 use App\Backend\Db\LangDb;
 use App\Backend\Db\DashboardDb;
+use App\Backend\Model\SecurityAudit;
+use App\Backend\Model\SecurityConfig;
 use App\Component\Hook\HookManager;
 use App\Backend\Db\PagesDb;
 use App\Backend\Db\ProductDb;
@@ -69,6 +71,13 @@ class DashboardController extends BaseController
             $mediaSizeFormatted = $this->formatBytes($mediaSizeBytes);
         }
 
+        $menuPerms = $this->view->getTemplateVars('menu_perms') ?? [];
+        $canViewSecurity = $this->view->getTemplateVars('is_super_admin') || !empty($menuPerms['securitystatus']);
+        $secWidget = $canViewSecurity && SecurityConfig::enabled('sec_dashboard_widget', true);
+        $secSummary = $secWidget
+            ? SecurityAudit::summary(SecurityAudit::run($this->siteSettings))
+            : ['score' => 0, 'counts' => []];
+
         $this->view->assign([
             'widgets_main'       => $rawWidgets,
             'saved_order'        => $savedOrder,
@@ -79,7 +88,10 @@ class DashboardController extends BaseController
             'total_employees'    => $db->countEmployees(),
             'total_plugins'      => $db->countPlugins(),
             'total_news'         => $db->countNews(),
-            'total_media_size'   => $mediaSizeFormatted
+            'total_media_size'   => $mediaSizeFormatted,
+            'security_widget'    => $secWidget,
+            'security_score'     => $secSummary['score'],
+            'security_counts'    => $secSummary['counts']
         ]);
 
         $this->view->display('dashboard/index.tpl');

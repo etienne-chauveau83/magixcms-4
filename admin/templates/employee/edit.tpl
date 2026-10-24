@@ -99,7 +99,7 @@
                         {if $employee.id_admin == 1}
                             <input type="hidden" name="id_role" value="1">
                             <select class="form-select" disabled>
-                                <option>Super Administrateur (Intouchable)</option>
+                                <option>Créateur (compte protégé)</option>
                             </select>
                             <div class="form-text text-warning small mt-1"><i class="bi bi-exclamation-triangle"></i> Le rôle du créateur ne peut être modifié.</div>
                         {else}
@@ -108,7 +108,7 @@
                                 {if isset($roles)}
                                     {foreach $roles as $role}
                                         <option value="{$role.id_role}" {if isset($employee.id_role) && $employee.id_role == $role.id_role}selected{/if}>
-                                            {$role.role_name|capitalize}
+                                            {$role.role_label|escape:'html'}
                                         </option>
                                     {/foreach}
                                 {/if}

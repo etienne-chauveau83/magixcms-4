@@ -99,7 +99,7 @@
                             <option value="">-- Choisir un rôle --</option>
                             {if isset($roles)}
                                 {foreach $roles as $role}
-                                    <option value="{$role.id_role}">{$role.role_name|capitalize}</option>
+                                    <option value="{$role.id_role}">{$role.role_label|escape:'html'}</option>
                                 {/foreach}
                             {/if}
                         </select>

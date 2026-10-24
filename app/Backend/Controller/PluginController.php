@@ -206,6 +206,7 @@ class PluginController extends BaseController
 
             $hasConfig = $manifest['has_config'] ?? false;
 
+            $this->logAudit('plugin.install', $pluginName);
             $this->jsonResponse(true, 'Le plugin a été installé avec succès !', [
                 'type' => 'install_success',
                 'has_config' => $hasConfig,
@@ -259,6 +260,7 @@ class PluginController extends BaseController
                 FileTool::remove($uploadDir);
             }
 
+            $this->logAudit('plugin.uninstall', $pluginName);
             $this->jsonResponse(true, 'Le plugin a été désinstallé avec succès.', ['type' => 'uninstall_success']);
         } else {
             $this->jsonResponse(false, 'Erreur lors de la suppression des données du plugin.');

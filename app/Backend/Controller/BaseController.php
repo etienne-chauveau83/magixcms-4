@@ -18,6 +18,8 @@ use Magepattern\Component\HTTP\Session;
 use Magepattern\Component\HTTP\JSON;
 use App\Backend\Db\PluginDb;
 use App\Backend\Db\SettingDb;
+use App\Backend\Model\SecurityConfig;
+use App\Backend\Model\ClientIpResolver;
 
 abstract class BaseController
 {
@@ -75,6 +77,9 @@ abstract class BaseController
         // ==========================================================
         $settingDb = new SettingDb();
         $this->siteSettings = $settingDb->fetchAllSettings();
+        // Amorce le lecteur de config sécurité avec les réglages déjà chargés
+        // (aucune requête SQL dédiée côté SecurityConfig).
+        SecurityConfig::prime($this->siteSettings);
         $this->view->assign('mc_settings', $this->siteSettings);
 
         // ==========================================================
@@ -375,6 +380,7 @@ abstract class BaseController
             $db = new \App\Backend\Db\EmployeeDb();
             $user = $db->fetchEmployeeById($idAdmin);
             if ($user) {
+                $user['role_label'] = \App\Backend\Model\AdminRoleLabel::account($user);
                 $this->view->assign('current_user', $user);
             }
         }
@@ -505,6 +511,45 @@ abstract class BaseController
         header('Content-Type: application/json; charset=utf-8');
         echo $this->json->encode($payload);
         exit;
+    }
+
+    /** Identité de l’acteur des opérations sensibles. */
+    protected function auditActor(): array
+    {
+        $id = (int)$this->session->get('id_admin');
+        return [
+            'id_admin' => $id > 0 ? $id : null,
+            'email_admin' => $this->session->get('email_admin') ?: null,
+            'ip_log' => ClientIpResolver::resolve(),
+        ];
+    }
+
+    /**
+     * Enregistre une action sensible dans le journal d'audit (mc_admin_audit_log).
+     * Ne doit jamais interrompre l'action métier : toute erreur est avalée.
+     *
+     * @param string      $action     ex: "employee.create", "login.success"
+     * @param string|null $target     identifiant/clé de la cible (id, nom...)
+     * @param string|null $actorEmail e-mail de l'acteur s'il n'est pas en session
+     *                                (ex: échec de connexion)
+     */
+    protected function logAudit(string $action, ?string $target = null, ?string $actorEmail = null, array $details = []): void
+    {
+        try {
+            $idAdmin = (int)$this->session->get('id_admin');
+            $email   = $actorEmail ?? $this->session->get('email_admin');
+
+            (new \App\Backend\Db\AuditLogDb())->insert([
+                'id_admin'      => $idAdmin > 0 ? $idAdmin : null,
+                'email_admin'   => $email ?: null,
+                'action_log'    => $action,
+                'target_log'    => $target,
+                'details_log'   => $details !== [] ? $details : null,
+                'ip_log'        => ClientIpResolver::resolve(),
+            ]);
+        } catch (\Throwable $e) {
+            $this->logger->log('Audit log failed: ' . $e->getMessage(), 'warning');
+        }
     }
 
     abstract public function run(): void;
